@@ -4,6 +4,12 @@ export default async function handler(req, res) {
 const url = new URL(req.url, `https://${req.headers.host}`);
 const invoiceId = url.searchParams.get("invoice_id");
 
+if (!invoiceId) {import { createClient } from "@supabase/supabase-js";
+
+export default async function handler(req, res) {
+const url = new URL(req.url, `https://${req.headers.host}`);
+const invoiceId = url.searchParams.get("invoice_id");
+
 if (!invoiceId) {
   return res.status(400).send("Missing invoice_id");
 }
@@ -11,6 +17,7 @@ if (!invoiceId) {
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const nmiPublicKey = process.env.NMI_PUBLIC_KEY;
+const companyLogoUrl = process.env.COMPANY_LOGO_URL || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const { data: invoice, error } = await supabase
@@ -20,19 +27,22 @@ const { data: invoice, error } = await supabase
   .single();
 
 if (error || !invoice) {
+  res.setHeader("Content-Type", "text/html");
   return res.status(404).send(notFoundHtml());
 }
 
 if (invoice.balance_due <= 0) {
   res.setHeader("Content-Type", "text/html");
-  return res.status(200).send(paidHtml(invoice));
+  return res.status(200).send(paidHtml(invoice, companyLogoUrl));
 }
 
 const processUrl = `${supabaseUrl}/functions/v1/process-payment`;
-
 const depositAmount = invoice.deposit_amount || 0;
 const depositPaid = invoice.deposit_paid || false;
 const totalAmount = invoice.total_amount || invoice.balance_due;
+const balanceDue = Number(invoice.balance_due).toFixed(2);
+const customerName = (invoice.customer_name || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
+const customerEmail = (invoice.customer_email || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
 const html = `<!DOCTYPE html>
 <html lang="en">
@@ -56,7 +66,15 @@ body {
   text-align: center;
   margin: 40px 0 32px;
 }
-.shield-icon {
+.company-logo {
+  width: 72px; height: 72px;
+  border-radius: 16px;
+  object-fit: contain;
+  margin: 0 auto 16px;
+  display: block;
+  box-shadow: 0 8px 32px rgba(59,130,246,0.25);
+}
+.logo-fallback {
   width: 56px; height: 56px;
   background: linear-gradient(135deg, #1a5fc7, #3b82f6);
   border-radius: 14px;
@@ -64,7 +82,7 @@ body {
   margin: 0 auto 16px;
   box-shadow: 0 8px 32px rgba(59,130,246,0.3);
 }
-.shield-icon svg { width: 28px; height: 28px; fill: white; }
+.logo-fallback svg { width: 28px; height: 28px; fill: white; }
 .header h1 {
   font-size: 24px; font-weight: 700;
   letter-spacing: -0.3px;
@@ -106,9 +124,7 @@ body {
   font-size: 18px; font-weight: 600; margin-bottom: 16px;
   letter-spacing: -0.2px;
 }
-.amount-grid {
-  display: grid; gap: 10px;
-}
+.amount-grid { display: grid; gap: 10px; }
 .amount-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 10px 14px;
@@ -124,15 +140,28 @@ body {
 .amount-row.total .value {
   color: #60a5fa; font-size: 22px; font-weight: 700;
 }
-.deposit-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 600; padding: 4px 10px;
-  border-radius: 8px; margin-top: 8px;
-}
-.deposit-paid { background: rgba(34,197,94,0.12); color: #22c55e; }
-.deposit-unpaid { background: rgba(234,179,8,0.12); color: #eab308; }
 
 .payment-section { padding: 24px; }
+
+.wallet-buttons { margin-bottom: 20px; }
+.apple-pay-button {
+  min-height: 48px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.wallet-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 16px 0;
+  color: #6b7280; font-size: 13px;
+}
+.wallet-divider::before,
+.wallet-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+}
+
 .method-toggle {
   display: flex; gap: 8px; margin-bottom: 24px;
   background: rgba(255,255,255,0.04);
@@ -177,20 +206,15 @@ body {
 .row-2 { display: flex; gap: 12px; }
 .row-2 > div { flex: 1; }
 
-.save-vault {
+.vault-info {
   display: flex; align-items: center; gap: 10px;
   margin-bottom: 20px; padding: 12px 14px;
-  background: rgba(255,255,255,0.03);
-  border-radius: 10px; cursor: pointer;
-  user-select: none;
+  background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.12);
+  border-radius: 10px;
 }
-.save-vault input[type="checkbox"] {
-  width: 18px; height: 18px; accent-color: #3b82f6;
-  cursor: pointer;
-}
-.save-vault label {
-  font-size: 13px; color: #9ca3af; cursor: pointer;
-}
+.vault-info svg { width: 16px; height: 16px; fill: #60a5fa; flex-shrink: 0; }
+.vault-info span { font-size: 13px; color: #9ca3af; }
 
 #pay-btn {
   width: 100%; padding: 16px;
@@ -242,9 +266,10 @@ body {
 <body>
 
 <div class="header">
-<div class="shield-icon">
-  <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 6h2v2h-2V7zm0 4h2v6h-2v-6z"/></svg>
-</div>
+${companyLogoUrl
+  ? '<img src="' + companyLogoUrl + '" alt="Shield Low Voltage" class="company-logo" />'
+  : '<div class="logo-fallback"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 6h2v2h-2V7zm0 4h2v6h-2v-6z"/></svg></div>'
+}
 <h1>Shield Low Voltage</h1>
 <p>Secure Payment Portal</p>
 </div>
@@ -263,27 +288,21 @@ body {
       <span class="label">Invoice Total</span>
       <span class="value">$${Number(totalAmount).toFixed(2)}</span>
     </div>
-    ${depositAmount > 0 ? `
-    <div class="amount-row">
-      <span class="label">Deposit</span>
-      <span class="value" style="color: ${depositPaid ? '#22c55e' : '#eab308'}">
-        ${depositPaid ? '−' : ''}$${Number(depositAmount).toFixed(2)}
-        ${depositPaid ? ' ✓' : ' (unpaid)'}
-      </span>
-    </div>` : ''}
-    ${(invoice.payments_made || 0) > 0 ? `
-    <div class="amount-row">
-      <span class="label">Payments Made</span>
-      <span class="value" style="color: #22c55e">−$${Number(invoice.payments_made).toFixed(2)}</span>
-    </div>` : ''}
+    ${depositAmount > 0 ? '<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ' + (depositPaid ? '#22c55e' : '#eab308') + '">' + (depositPaid ? '&#8722;' : '') + '$' + Number(depositAmount).toFixed(2) + (depositPaid ? ' &#10003;' : ' (unpaid)') + '</span></div>' : ''}
+    ${(invoice.payments_made || 0) > 0 ? '<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color: #22c55e">&#8722;$' + Number(invoice.payments_made).toFixed(2) + '</span></div>' : ''}
     <div class="amount-row total">
       <span class="label">Balance Due</span>
-      <span class="value">$${Number(invoice.balance_due).toFixed(2)}</span>
+      <span class="value">$${balanceDue}</span>
     </div>
   </div>
 </div>
 
 <div class="payment-section">
+  <div class="wallet-buttons">
+    <div id="apple-pay-container" class="apple-pay-button"></div>
+  </div>
+  <div class="wallet-divider" id="wallet-divider" style="display:none;">or pay with</div>
+
   <div class="method-toggle">
     <button class="method-btn active" id="card-tab" onclick="switchMethod('card')">
       <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
@@ -295,7 +314,6 @@ body {
     </button>
   </div>
 
-  <!-- Credit Card Fields -->
   <div id="card-fields" class="fields-group active">
     <label class="field-label">Card Number</label>
     <div id="ccnumber" class="collect-field"></div>
@@ -311,7 +329,6 @@ body {
     </div>
   </div>
 
-  <!-- ACH / Bank Account Fields -->
   <div id="ach-fields" class="fields-group">
     <label class="field-label">Account Holder Name</label>
     <div id="checkname" class="collect-field"></div>
@@ -321,20 +338,20 @@ body {
     <div id="checkaccount" class="collect-field"></div>
   </div>
 
-  <div class="save-vault">
-    <input type="checkbox" id="save-payment" checked>
-    <label for="save-payment">Save payment method for future use</label>
+  <div class="vault-info">
+    <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.89 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+    <span>Your payment method will be securely saved for future billing.</span>
   </div>
 
   <button id="pay-btn" onclick="submitPayment()">
-    Pay $${Number(invoice.balance_due).toFixed(2)}
+    Pay $${balanceDue}
   </button>
   <div id="status"></div>
 </div>
 </div>
 
 <div class="footer">
-<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.89 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
 Secured by NMI &bull; PCI-DSS Compliant
 </div>
 
@@ -347,13 +364,19 @@ data-field-cvv-selector="#cvv"
 data-field-checkname-selector="#checkname"
 data-field-checkaba-selector="#checkaba"
 data-field-checkaccount-selector="#checkaccount"
+data-field-apple-pay-selector="#apple-pay-container"
+data-field-apple-pay-type="buy"
+data-field-apple-pay-total-label="Shield Low Voltage"
+data-price="${balanceDue}"
+data-country="US"
+data-currency="USD"
 data-style-input="color: #FFFFFF; font-size: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: transparent; border: none; outline: none;"
 data-style-input-placeholder="color: #4b5563;"
 ></script>
 
 <script>
-let paymentToken = null;
-let currentMethod = 'card';
+var paymentToken = null;
+var currentMethod = 'card';
 
 document.addEventListener('DOMContentLoaded', function() {
   if (typeof CollectJS !== 'undefined') {
@@ -361,6 +384,12 @@ document.addEventListener('DOMContentLoaded', function() {
       callback: function(response) {
         paymentToken = response.token;
         submitToServer();
+      },
+      fieldsAvailableCallback: function() {
+        var applePayEl = document.getElementById('apple-pay-container');
+        if (applePayEl && applePayEl.querySelector('iframe')) {
+          document.getElementById('wallet-divider').style.display = 'flex';
+        }
       }
     });
   }
@@ -375,8 +404,8 @@ function switchMethod(method) {
 }
 
 function submitPayment() {
-  const btn = document.getElementById('pay-btn');
-  const status = document.getElementById('status');
+  var btn = document.getElementById('pay-btn');
+  var status = document.getElementById('status');
   btn.disabled = true;
   status.className = 'processing';
   status.textContent = 'Processing...';
@@ -384,12 +413,11 @@ function submitPayment() {
 }
 
 async function submitToServer() {
-  const btn = document.getElementById('pay-btn');
-  const status = document.getElementById('status');
-  const saveToVault = document.getElementById('save-payment').checked;
+  var btn = document.getElementById('pay-btn');
+  var status = document.getElementById('status');
 
   try {
-    const res = await fetch('${processUrl}', {
+    var res = await fetch('${processUrl}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -397,25 +425,24 @@ async function submitToServer() {
         invoice_id: '${invoiceId}',
         amount: ${invoice.balance_due},
         payment_method: currentMethod,
-        save_to_vault: saveToVault,
-        customer_name: '${(invoice.customer_name || '').replace(/'/g, "\\'")}',
-        customer_email: '${(invoice.customer_email || '').replace(/'/g, "\\'")}'
+        save_to_vault: true,
+        customer_name: '${customerName}',
+        customer_email: '${customerEmail}'
       })
     });
 
-    const data = await res.json();
+    var data = await res.json();
 
     if (data.success) {
-      document.querySelector('.payment-section').innerHTML = \`
-        <div class="success-container">
-          <div class="success-icon">
-            <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-          </div>
-          <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Payment Successful</h2>
-          <p style="color: #9ca3af; font-size: 15px;">Thank you for your payment of <strong style="color: #fff;">$${Number(invoice.balance_due).toFixed(2)}</strong></p>
-          <p style="color: #6b7280; font-size: 13px; margin-top: 12px;">A confirmation will be sent to your email.</p>
-        </div>
-      \`;
+      document.querySelector('.payment-section').innerHTML =
+        '<div class="success-container">' +
+          '<div class="success-icon">' +
+            '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
+          '</div>' +
+          '<h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Payment Successful</h2>' +
+          '<p style="color: #9ca3af; font-size: 15px;">Thank you for your payment of <strong style="color: #fff;">$${balanceDue}</strong></p>' +
+          '<p style="color: #6b7280; font-size: 13px; margin-top: 12px;">A confirmation will be sent to your email.</p>' +
+        '</div>';
     } else {
       status.className = 'error';
       status.textContent = data.error || 'Payment failed. Please try again.';
@@ -451,7 +478,7 @@ p { color: #6b7280; }
 </div></body></html>`;
 }
 
-function paidHtml(invoice) {
+function paidHtml(invoice, logoUrl) {
 return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Payment Complete — Shield Low Voltage</title>
@@ -459,6 +486,7 @@ return `<!DOCTYPE html>
 body { font-family: -apple-system, sans-serif; background: linear-gradient(145deg, #0a0e1a, #0d1117);
 color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
 .container { text-align: center; padding: 48px 32px; max-width: 400px; }
+.logo { width: 64px; height: 64px; border-radius: 14px; object-fit: contain; margin: 0 auto 24px; display: block; }
 .icon { width: 72px; height: 72px; background: rgba(34,197,94,0.12); border-radius: 50%;
 display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
 .icon svg { width: 36px; height: 36px; fill: #22c55e; }
@@ -466,6 +494,7 @@ h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
 p { color: #6b7280; font-size: 15px; line-height: 1.5; }
 .invoice { color: #9ca3af; font-size: 13px; margin-top: 16px; }
 </style></head><body><div class="container">
+${logoUrl ? '<img src="' + logoUrl + '" alt="Shield Low Voltage" class="logo" />' : ''}
 <div class="icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
 <h2>Invoice Paid in Full</h2>
 <p>Thank you for your payment!</p>
