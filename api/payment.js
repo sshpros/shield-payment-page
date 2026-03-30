@@ -85,9 +85,7 @@ letter-spacing: -0.3px;
 font-size: 14px; color: #6b7280; margin-top: 4px;
 }
 .container {
-background: rgba(22, 27, 34, 0.9);
-backdrop-filter: blur(20px);
--webkit-backdrop-filter: blur(20px);
+background: rgba(22, 27, 34, 0.95);
 border-radius: 20px;
 border: 1px solid rgba(255,255,255,0.06);
 padding: 0;
@@ -199,12 +197,13 @@ border-color: rgba(59,130,246,0.5);
 box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
 }
 .collect-field iframe {
-min-height: 20px !important;
 width: 100% !important;
-height: 100% !important;
+height: 40px !important;
+min-height: 40px !important;
+border: none !important;
 pointer-events: auto !important;
-position: relative;
-z-index: 2;
+position: relative !important;
+z-index: 2 !important;
 }
 .row-2 { display: flex; gap: 12px; }
 .row-2 > div { flex: 1; }
