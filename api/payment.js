@@ -14,6 +14,11 @@ const nmiPublicKey = process.env.NMI_PUBLIC_KEY;
 const companyLogoUrl = process.env.COMPANY_LOGO_URL || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+if (!nmiPublicKey) {
+  res.setHeader("Content-Type", "text/html");
+  return res.status(500).send("<h1>Payment configuration error: NMI_PUBLIC_KEY not set</h1>");
+}
+
 const { data: invoice, error } = await supabase
   .from("invoices")
   .select("*")
@@ -91,7 +96,7 @@ border: 1px solid rgba(255,255,255,0.06);
 padding: 0;
 max-width: 460px;
 width: 100%;
-overflow: hidden;
+overflow: visible;
 box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
 .invoice-section {
@@ -188,8 +193,6 @@ border-radius: 12px;
 padding: 14px 16px;
 margin-bottom: 16px;
 min-height: 48px;
-position: relative;
-z-index: 1;
 transition: border-color 0.2s ease;
 }
 .collect-field:focus-within {
@@ -198,12 +201,7 @@ box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
 }
 .collect-field iframe {
 width: 100% !important;
-height: 40px !important;
-min-height: 40px !important;
-border: none !important;
-pointer-events: auto !important;
-position: relative !important;
-z-index: 2 !important;
+min-height: 24px !important;
 }
 .row-2 { display: flex; gap: 12px; }
 .row-2 > div { flex: 1; }
@@ -357,6 +355,10 @@ ${companyLogoUrl
 Secured by NMI &bull; PCI-DSS Compliant
 </div>
 
+<script src="https://secure.nmi.com/token/Collect.js"
+data-tokenization-key="${nmiPublicKey}"
+></script>
+
 <script>
 var paymentToken = null;
 var currentMethod = 'card';
@@ -365,20 +367,79 @@ var collectReady = false;
 function initCollect() {
 if (typeof CollectJS === 'undefined') return false;
 
-CollectJS.configure({
-  callback: function(response) {
-    paymentToken = response.token;
-    submitToServer();
-  },
-  fieldsAvailableCallback: function() {
-    collectReady = true;
-    document.getElementById('pay-btn').disabled = false;
-    var applePayEl = document.getElementById('apple-pay-container');
-    if (applePayEl && applePayEl.querySelector('iframe')) {
-      document.getElementById('wallet-divider').style.display = 'flex';
+try {
+  CollectJS.configure({
+    variant: 'inline',
+    styleSniffer: false,
+    fields: {
+      ccnumber: {
+        selector: '#ccnumber',
+        title: 'Card Number',
+        placeholder: '0000 0000 0000 0000'
+      },
+      ccexp: {
+        selector: '#ccexp',
+        title: 'Expiration',
+        placeholder: 'MM / YY'
+      },
+      cvv: {
+        selector: '#cvv',
+        title: 'CVV',
+        placeholder: '***'
+      },
+      checkname: {
+        selector: '#checkname',
+        title: 'Account Holder Name',
+        placeholder: 'John Doe'
+      },
+      checkaba: {
+        selector: '#checkaba',
+        title: 'Routing Number',
+        placeholder: '000000000'
+      },
+      checkaccount: {
+        selector: '#checkaccount',
+        title: 'Account Number',
+        placeholder: '0000000000'
+      }
+    },
+    customCss: {
+      'color': '#FFFFFF',
+      'font-size': '16px',
+      'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
+      'background-color': 'transparent',
+      'border': 'none',
+      'outline': 'none'
+    },
+    focusCss: {
+      'color': '#FFFFFF'
+    },
+    placeholderCss: {
+      'color': '#4b5563'
+    },
+    invalidCss: {
+      'color': '#ef4444'
+    },
+    price: '${balanceDue}',
+    currency: 'USD',
+    country: 'US',
+    fieldsAvailableCallback: function() {
+      collectReady = true;
+      document.getElementById('pay-btn').disabled = false;
+      console.log('Collect.js fields ready');
+    },
+    callback: function(response) {
+      paymentToken = response.token;
+      submitToServer();
+    },
+    validationCallback: function(field, status, message) {
+      console.log('Validation:', field, status, message);
     }
-  }
-});
+  });
+} catch (e) {
+  console.error('Collect.js configure error:', e);
+  return false;
+}
 return true;
 }
 
@@ -389,9 +450,10 @@ var interval = setInterval(function() {
   attempts++;
   if (initCollect() || attempts > 50) {
     clearInterval(interval);
-    if (attempts > 50) {
+    if (attempts > 50 && !collectReady) {
       document.getElementById('status').className = 'error';
       document.getElementById('status').textContent = 'Payment form failed to load. Please refresh the page.';
+      console.error('CollectJS never became available after 10s');
     }
   }
 }, 200);
@@ -460,25 +522,6 @@ try {
 }
 }
 </script>
-
-<script src="https://secure.nmi.com/token/Collect.js"
-data-tokenization-key="${nmiPublicKey}"
-data-variant="inline"
-data-field-ccnumber-selector="#ccnumber"
-data-field-ccexp-selector="#ccexp"
-data-field-cvv-selector="#cvv"
-data-field-checkname-selector="#checkname"
-data-field-checkaba-selector="#checkaba"
-data-field-checkaccount-selector="#checkaccount"
-data-field-apple-pay-selector="#apple-pay-container"
-data-field-apple-pay-type="buy"
-data-field-apple-pay-total-label="Shield Low Voltage"
-data-price="${balanceDue}"
-data-country="US"
-data-currency="USD"
-data-style-input="color: #FFFFFF; font-size: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: transparent; border: none; outline: none;"
-data-style-input-placeholder="color: #4b5563;"
-></script>
 </body>
 </html>`;
 
