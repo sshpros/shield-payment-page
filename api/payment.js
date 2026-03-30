@@ -190,13 +190,22 @@ border-radius: 12px;
 padding: 14px 16px;
 margin-bottom: 16px;
 min-height: 48px;
+position: relative;
+z-index: 1;
 transition: border-color 0.2s ease;
 }
 .collect-field:focus-within {
 border-color: rgba(59,130,246,0.5);
 box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
 }
-.collect-field iframe { min-height: 20px !important; }
+.collect-field iframe {
+min-height: 20px !important;
+width: 100% !important;
+height: 100% !important;
+pointer-events: auto !important;
+position: relative;
+z-index: 2;
+}
 .row-2 { display: flex; gap: 12px; }
 .row-2 > div { flex: 1; }
 
@@ -261,8 +270,8 @@ margin: 0 auto 20px;
 
 <div class="header">
 ${companyLogoUrl
-? '<img src="' + companyLogoUrl + '" alt="Shield Low Voltage" class="company-logo" />'
-: '<div class="logo-fallback"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 6h2v2h-2V7zm0 4h2v6h-2v-6z"/></svg></div>'
+  ? '<img src="' + companyLogoUrl + '" alt="Shield Low Voltage" class="company-logo" />'
+  : '<div class="logo-fallback"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 6h2v2h-2V7zm0 4h2v6h-2v-6z"/></svg></div>'
 }
 <h1>Shield Low Voltage</h1>
 <p>Secure Payment Portal</p>
@@ -270,77 +279,77 @@ ${companyLogoUrl
 
 <div class="container">
 <div class="invoice-section">
-<div class="invoice-header">
-  <span class="invoice-number">Invoice ${invoice.invoice_number || invoiceId.slice(0, 8).toUpperCase()}</span>
-  <span class="invoice-status ${depositPaid ? 'status-partial' : 'status-pending'}">
-    ${depositPaid ? 'Deposit Paid' : 'Payment Due'}
-  </span>
-</div>
-<div class="customer-name">${invoice.customer_name || 'Customer'}</div>
-<div class="amount-grid">
-  <div class="amount-row">
-    <span class="label">Invoice Total</span>
-    <span class="value">$${Number(totalAmount).toFixed(2)}</span>
+  <div class="invoice-header">
+    <span class="invoice-number">Invoice ${invoice.invoice_number || invoiceId.slice(0, 8).toUpperCase()}</span>
+    <span class="invoice-status ${depositPaid ? 'status-partial' : 'status-pending'}">
+      ${depositPaid ? 'Deposit Paid' : 'Payment Due'}
+    </span>
   </div>
-  ${depositAmount > 0 ? '<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ' + (depositPaid ? '#22c55e' : '#eab308') + '">' + (depositPaid ? '&#8722;' : '') + '$' + Number(depositAmount).toFixed(2) + (depositPaid ? ' &#10003;' : ' (unpaid)') + '</span></div>' : ''}
-  ${(invoice.payments_made || 0) > 0 ? '<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color: #22c55e">&#8722;$' + Number(invoice.payments_made).toFixed(2) + '</span></div>' : ''}
-  <div class="amount-row total">
-    <span class="label">Balance Due</span>
-    <span class="value">$${balanceDue}</span>
+  <div class="customer-name">${invoice.customer_name || 'Customer'}</div>
+  <div class="amount-grid">
+    <div class="amount-row">
+      <span class="label">Invoice Total</span>
+      <span class="value">$${Number(totalAmount).toFixed(2)}</span>
+    </div>
+    ${depositAmount > 0 ? '<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ' + (depositPaid ? '#22c55e' : '#eab308') + '">' + (depositPaid ? '&#8722;' : '') + '$' + Number(depositAmount).toFixed(2) + (depositPaid ? ' &#10003;' : ' (unpaid)') + '</span></div>' : ''}
+    ${(invoice.payments_made || 0) > 0 ? '<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color: #22c55e">&#8722;$' + Number(invoice.payments_made).toFixed(2) + '</span></div>' : ''}
+    <div class="amount-row total">
+      <span class="label">Balance Due</span>
+      <span class="value">$${balanceDue}</span>
+    </div>
   </div>
-</div>
 </div>
 
 <div class="payment-section">
-<div class="wallet-buttons">
-  <div id="apple-pay-container" class="apple-pay-button"></div>
-</div>
-<div class="wallet-divider" id="wallet-divider" style="display:none;">or pay with</div>
+  <div class="wallet-buttons">
+    <div id="apple-pay-container" class="apple-pay-button"></div>
+  </div>
+  <div class="wallet-divider" id="wallet-divider" style="display:none;">or pay with</div>
 
-<div class="method-toggle">
-  <button class="method-btn active" id="card-tab" onclick="switchMethod('card')">
-    <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
-    Credit Card
-  </button>
-  <button class="method-btn" id="ach-tab" onclick="switchMethod('ach')">
-    <svg viewBox="0 0 24 24"><path d="M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zm-5-9L2 6v2h20V6z"/></svg>
-    Bank Account
-  </button>
-</div>
+  <div class="method-toggle">
+    <button class="method-btn active" id="card-tab" onclick="switchMethod('card')">
+      <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+      Credit Card
+    </button>
+    <button class="method-btn" id="ach-tab" onclick="switchMethod('ach')">
+      <svg viewBox="0 0 24 24"><path d="M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zm-5-9L2 6v2h20V6z"/></svg>
+      Bank Account
+    </button>
+  </div>
 
-<div id="card-fields" class="fields-group active">
-  <label class="field-label">Card Number</label>
-  <div id="ccnumber" class="collect-field"></div>
-  <div class="row-2">
-    <div>
-      <label class="field-label">Expiration</label>
-      <div id="ccexp" class="collect-field"></div>
-    </div>
-    <div>
-      <label class="field-label">CVV</label>
-      <div id="cvv" class="collect-field"></div>
+  <div id="card-fields" class="fields-group active">
+    <label class="field-label">Card Number</label>
+    <div id="ccnumber" class="collect-field"></div>
+    <div class="row-2">
+      <div>
+        <label class="field-label">Expiration</label>
+        <div id="ccexp" class="collect-field"></div>
+      </div>
+      <div>
+        <label class="field-label">CVV</label>
+        <div id="cvv" class="collect-field"></div>
+      </div>
     </div>
   </div>
-</div>
 
-<div id="ach-fields" class="fields-group">
-  <label class="field-label">Account Holder Name</label>
-  <div id="checkname" class="collect-field"></div>
-  <label class="field-label">Routing Number</label>
-  <div id="checkaba" class="collect-field"></div>
-  <label class="field-label">Account Number</label>
-  <div id="checkaccount" class="collect-field"></div>
-</div>
+  <div id="ach-fields" class="fields-group">
+    <label class="field-label">Account Holder Name</label>
+    <div id="checkname" class="collect-field"></div>
+    <label class="field-label">Routing Number</label>
+    <div id="checkaba" class="collect-field"></div>
+    <label class="field-label">Account Number</label>
+    <div id="checkaccount" class="collect-field"></div>
+  </div>
 
-<div class="vault-info">
-  <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.89 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
-  <span>Your payment method will be securely saved for future billing.</span>
-</div>
+  <div class="vault-info">
+    <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.89 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+    <span>Your payment method will be securely saved for future billing.</span>
+  </div>
 
-<button id="pay-btn" onclick="submitPayment()">
-  Pay $${balanceDue}
-</button>
-<div id="status"></div>
+  <button id="pay-btn" onclick="submitPayment()" disabled>
+    Pay $${balanceDue}
+  </button>
+  <div id="status"></div>
 </div>
 </div>
 
@@ -349,45 +358,47 @@ ${companyLogoUrl
 Secured by NMI &bull; PCI-DSS Compliant
 </div>
 
-<script src="https://secure.nmi.com/token/Collect.js"
-data-tokenization-key="${nmiPublicKey}"
-data-variant="inline"
-data-field-ccnumber-selector="#ccnumber"
-data-field-ccexp-selector="#ccexp"
-data-field-cvv-selector="#cvv"
-data-field-checkname-selector="#checkname"
-data-field-checkaba-selector="#checkaba"
-data-field-checkaccount-selector="#checkaccount"
-data-field-apple-pay-selector="#apple-pay-container"
-data-field-apple-pay-type="buy"
-data-field-apple-pay-total-label="Shield Low Voltage"
-data-price="${balanceDue}"
-data-country="US"
-data-currency="USD"
-data-style-input="color: #FFFFFF; font-size: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: transparent; border: none; outline: none;"
-data-style-input-placeholder="color: #4b5563;"
-></script>
-
 <script>
 var paymentToken = null;
 var currentMethod = 'card';
+var collectReady = false;
 
-document.addEventListener('DOMContentLoaded', function() {
-if (typeof CollectJS !== 'undefined') {
-  CollectJS.configure({
-    callback: function(response) {
-      paymentToken = response.token;
-      submitToServer();
-    },
-    fieldsAvailableCallback: function() {
-      var applePayEl = document.getElementById('apple-pay-container');
-      if (applePayEl && applePayEl.querySelector('iframe')) {
-        document.getElementById('wallet-divider').style.display = 'flex';
-      }
+function initCollect() {
+if (typeof CollectJS === 'undefined') return false;
+
+CollectJS.configure({
+  callback: function(response) {
+    paymentToken = response.token;
+    submitToServer();
+  },
+  fieldsAvailableCallback: function() {
+    collectReady = true;
+    document.getElementById('pay-btn').disabled = false;
+    var applePayEl = document.getElementById('apple-pay-container');
+    if (applePayEl && applePayEl.querySelector('iframe')) {
+      document.getElementById('wallet-divider').style.display = 'flex';
     }
-  });
-}
+  }
 });
+return true;
+}
+
+function waitForCollect() {
+if (initCollect()) return;
+var attempts = 0;
+var interval = setInterval(function() {
+  attempts++;
+  if (initCollect() || attempts > 50) {
+    clearInterval(interval);
+    if (attempts > 50) {
+      document.getElementById('status').className = 'error';
+      document.getElementById('status').textContent = 'Payment form failed to load. Please refresh the page.';
+    }
+  }
+}, 200);
+}
+
+document.addEventListener('DOMContentLoaded', waitForCollect);
 
 function switchMethod(method) {
 currentMethod = method;
@@ -398,6 +409,7 @@ document.getElementById('ach-tab').classList.toggle('active', method === 'ach');
 }
 
 function submitPayment() {
+if (!collectReady) return;
 var btn = document.getElementById('pay-btn');
 var status = document.getElementById('status');
 btn.disabled = true;
@@ -449,6 +461,25 @@ try {
 }
 }
 </script>
+
+<script src="https://secure.nmi.com/token/Collect.js"
+data-tokenization-key="${nmiPublicKey}"
+data-variant="inline"
+data-field-ccnumber-selector="#ccnumber"
+data-field-ccexp-selector="#ccexp"
+data-field-cvv-selector="#cvv"
+data-field-checkname-selector="#checkname"
+data-field-checkaba-selector="#checkaba"
+data-field-checkaccount-selector="#checkaccount"
+data-field-apple-pay-selector="#apple-pay-container"
+data-field-apple-pay-type="buy"
+data-field-apple-pay-total-label="Shield Low Voltage"
+data-price="${balanceDue}"
+data-country="US"
+data-currency="USD"
+data-style-input="color: #FFFFFF; font-size: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: transparent; border: none; outline: none;"
+data-style-input-placeholder="color: #4b5563;"
+></script>
 </body>
 </html>`;
 
