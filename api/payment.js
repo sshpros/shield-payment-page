@@ -30,24 +30,31 @@ if (error || !invoice) {
   return res.status(404).send(notFoundHtml());
 }
 
-if (invoice.balance_due <= 0) {
+// --- Amount calculations ---
+const isDepositInvoice = invoice.is_deposit_invoice || false;
+const depositRequired = Number(invoice.deposit_required_amount || 0);
+const fullInvoiceTotal = Number(invoice.total_amount || 0);
+const paymentsMade = Number(invoice.payments_made || invoice.total_paid || 0);
+const subtotal = Number(invoice.subtotal || 0);
+const taxAmount = Number(invoice.tax_amount || 0);
+const depositAmount = Number(invoice.deposit_amount || 0);
+const depositPaid = invoice.deposit_paid || false;
+
+const amountDue = isDepositInvoice && depositRequired > 0
+  ? Math.max(0, depositRequired - paymentsMade)
+  : Number(invoice.balance_due || 0);
+const balanceDue = amountDue.toFixed(2);
+
+if (amountDue <= 0) {
   res.setHeader("Content-Type", "text/html");
   return res.status(200).send(paidHtml(invoice, companyLogoUrl));
 }
 
 const processUrl = `${supabaseUrl}/functions/v1/process-payment`;
-const depositAmount = invoice.deposit_amount || 0;
-const depositPaid = invoice.deposit_paid || false;
-const isDepositInvoice = invoice.is_deposit_invoice || false;
-const parentTotalAmount = invoice.parent_total_amount || 0;
-const totalAmount = invoice.total_amount || invoice.balance_due;
-const subtotal = invoice.subtotal || 0;
-const taxAmount = invoice.tax_amount || 0;
-const balanceDue = Number(invoice.balance_due).toFixed(2);
 const customerName = (invoice.customer_name || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
 const customerEmail = (invoice.customer_email || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
-// Parse line items (embedded JSON array on invoices row)
+// --- Line items ---
 let lineItems = [];
 try {
   if (Array.isArray(invoice.line_items)) {
@@ -59,13 +66,16 @@ try {
   lineItems = [];
 }
 
-const lineItemsHtml = lineItems.length > 0
+const sortedItems = [...lineItems].sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+
+const lineItemsHtml = sortedItems.length > 0
   ? `<div class="line-items-section">
+       <div class="line-items-title">What you're paying for</div>
        <div class="line-items-header">
          <span>Description</span>
          <span>Amount</span>
        </div>
-       ${lineItems.map(item => {
+       ${sortedItems.map(item => {
          const desc = escapeHtml(item.description || item.name || "Item");
          const qty = Number(item.quantity || 1);
          const unitPrice = Number(item.unit_price || item.unitPrice || 0);
@@ -82,25 +92,44 @@ const lineItemsHtml = lineItems.length > 0
      </div>`
   : '';
 
-const summaryRowsHtml = `
-  ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${Number(subtotal).toFixed(2)}</span></div>` : ''}
-  ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${Number(taxAmount).toFixed(2)}</span></div>` : ''}
-  <div class="amount-row ${isDepositInvoice ? '' : 'total'}">
-    <span class="label">${isDepositInvoice ? 'Project Total' : 'Invoice Total'}</span>
-    <span class="value">$${Number(isDepositInvoice && parentTotalAmount > 0 ? parentTotalAmount : totalAmount).toFixed(2)}</span>
-  </div>
-  ${isDepositInvoice ? `<div class="amount-row deposit-note"><span class="label">50% Deposit Required</span><span class="value">$${Number(totalAmount).toFixed(2)}</span></div>` : ''}
-  ${depositAmount > 0 && !isDepositInvoice ? '<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ' + (depositPaid ? '#22c55e' : '#eab308') + '">' + (depositPaid ? '&#8722;' : '') + '$' + Number(depositAmount).toFixed(2) + (depositPaid ? ' &#10003;' : ' (unpaid)') + '</span></div>' : ''}
-  ${(invoice.payments_made || 0) > 0 ? '<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color: #22c55e">&#8722;$' + Number(invoice.payments_made).toFixed(2) + '</span></div>' : ''}
-  <div class="amount-row total">
-    <span class="label">Amount Due</span>
-    <span class="value">$${balanceDue}</span>
-  </div>
-`;
+// --- Summary rows ---
+let summaryRowsHtml = '';
+if (isDepositInvoice) {
+  summaryRowsHtml = `
+    ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${subtotal.toFixed(2)}</span></div>` : ''}
+    ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${taxAmount.toFixed(2)}</span></div>` : ''}
+    <div class="amount-row">
+      <span class="label">Invoice Total (full scope)</span>
+      <span class="value">$${fullInvoiceTotal.toFixed(2)}</span>
+    </div>
+    <div class="amount-row deposit-note">
+      <span class="label">Deposit Required (50%)</span>
+      <span class="value">$${depositRequired.toFixed(2)}</span>
+    </div>
+    ${paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color: #22c55e">&#8722;$${paymentsMade.toFixed(2)}</span></div>` : ''}
+    <div class="amount-row total">
+      <span class="label">Balance Due Now</span>
+      <span class="value">$${balanceDue}</span>
+    </div>
+  `;
+} else {
+  summaryRowsHtml = `
+    ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${subtotal.toFixed(2)}</span></div>` : ''}
+    ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${taxAmount.toFixed(2)}</span></div>` : ''}
+    <div class="amount-row">
+      <span class="label">Invoice Total</span>
+      <span class="value">$${fullInvoiceTotal.toFixed(2)}</span>
+    </div>
+    ${depositAmount > 0 ? `<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ${depositPaid ? '#22c55e' : '#eab308'}">${depositPaid ? '&#8722;' : ''}$${depositAmount.toFixed(2)}${depositPaid ? ' &#10003;' : ' (unpaid)'}</span></div>` : ''}
+    ${paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color: #22c55e">&#8722;$${paymentsMade.toFixed(2)}</span></div>` : ''}
+    <div class="amount-row total">
+      <span class="label">Amount Due</span>
+      <span class="value">$${balanceDue}</span>
+    </div>
+  `;
+}
 
-const statusLabel = isDepositInvoice
-  ? '50% Deposit'
-  : (depositPaid ? 'Deposit Paid' : 'Payment Due');
+const statusLabel = isDepositInvoice ? 'Deposit Due' : (depositPaid ? 'Deposit Paid' : 'Payment Due');
 const statusClass = isDepositInvoice ? 'status-deposit' : (depositPaid ? 'status-partial' : 'status-pending');
 
 const html = `<!DOCTYPE html>
@@ -122,81 +151,25 @@ align-items: center;
 padding: 20px;
 }
 .header { text-align: center; margin: 40px 0 32px; }
-.company-logo {
-width: 72px; height: 72px;
-border-radius: 16px;
-object-fit: contain;
-margin: 0 auto 16px;
-display: block;
-box-shadow: 0 8px 32px rgba(59,130,246,0.25);
-}
-.logo-fallback {
-width: 56px; height: 56px;
-background: linear-gradient(135deg, #1a5fc7, #3b82f6);
-border-radius: 14px;
-display: flex; align-items: center; justify-content: center;
-margin: 0 auto 16px;
-box-shadow: 0 8px 32px rgba(59,130,246,0.3);
-}
+.company-logo { width: 72px; height: 72px; border-radius: 16px; object-fit: contain; margin: 0 auto 16px; display: block; box-shadow: 0 8px 32px rgba(59,130,246,0.25); }
+.logo-fallback { width: 56px; height: 56px; background: linear-gradient(135deg, #1a5fc7, #3b82f6); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 8px 32px rgba(59,130,246,0.3); }
 .logo-fallback svg { width: 28px; height: 28px; fill: white; }
 .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.3px; }
 .header p { font-size: 14px; color: #6b7280; margin-top: 4px; }
-.container {
-background: rgba(22, 27, 34, 0.95);
-border-radius: 20px;
-border: 1px solid rgba(255,255,255,0.06);
-padding: 0;
-max-width: 460px;
-width: 100%;
-overflow: visible;
-box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-}
-.invoice-section {
-padding: 24px 24px 20px;
-border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-.invoice-header {
-display: flex; justify-content: space-between; align-items: center;
-margin-bottom: 16px;
-}
-.invoice-number {
-font-size: 13px; color: #6b7280;
-font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase;
-}
-.invoice-status {
-font-size: 12px; font-weight: 600;
-padding: 4px 10px; border-radius: 20px;
-}
+.container { background: rgba(22, 27, 34, 0.95); border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); padding: 0; max-width: 460px; width: 100%; overflow: visible; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.invoice-section { padding: 24px 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.invoice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.invoice-number { font-size: 13px; color: #6b7280; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+.invoice-status { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
 .status-pending { background: rgba(234,179,8,0.15); color: #eab308; }
 .status-partial { background: rgba(59,130,246,0.15); color: #3b82f6; }
-.status-deposit { background: rgba(168,85,247,0.15); color: #c084fc; }
-.customer-name {
-font-size: 18px; font-weight: 600; margin-bottom: 16px;
-letter-spacing: -0.2px;
-}
+.status-deposit { background: rgba(249,115,22,0.15); color: #fb923c; }
+.customer-name { font-size: 18px; font-weight: 600; margin-bottom: 16px; letter-spacing: -0.2px; }
 
-.line-items-section {
-margin-bottom: 16px;
-background: rgba(255,255,255,0.02);
-border: 1px solid rgba(255,255,255,0.05);
-border-radius: 12px;
-overflow: hidden;
-}
-.line-items-header {
-display: flex; justify-content: space-between;
-padding: 10px 14px;
-background: rgba(255,255,255,0.03);
-font-size: 11px; font-weight: 600;
-color: #6b7280; letter-spacing: 0.5px;
-text-transform: uppercase;
-border-bottom: 1px solid rgba(255,255,255,0.04);
-}
-.line-item-row {
-display: flex; justify-content: space-between; align-items: flex-start;
-padding: 12px 14px;
-gap: 12px;
-border-bottom: 1px solid rgba(255,255,255,0.04);
-}
+.line-items-section { margin-bottom: 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; }
+.line-items-title { padding: 12px 14px 6px; font-size: 13px; font-weight: 600; color: #e5e7eb; }
+.line-items-header { display: flex; justify-content: space-between; padding: 8px 14px; background: rgba(255,255,255,0.03); font-size: 11px; font-weight: 600; color: #6b7280; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.04); border-top: 1px solid rgba(255,255,255,0.04); }
+.line-item-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 14px; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
 .line-item-row:last-child { border-bottom: none; }
 .line-item-desc { flex: 1; min-width: 0; }
 .line-item-name { font-size: 14px; color: #e5e7eb; line-height: 1.3; }
@@ -204,27 +177,14 @@ border-bottom: 1px solid rgba(255,255,255,0.04);
 .line-item-amount { font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; }
 
 .amount-grid { display: grid; gap: 10px; }
-.amount-row {
-display: flex; justify-content: space-between; align-items: center;
-padding: 10px 14px;
-background: rgba(255,255,255,0.03);
-border-radius: 10px;
-}
+.amount-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 10px; }
 .amount-row .label { font-size: 14px; color: #9ca3af; }
 .amount-row .value { font-size: 14px; font-weight: 600; }
-.amount-row.total {
-background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.06));
-border: 1px solid rgba(59,130,246,0.2);
-}
-.amount-row.total .value {
-color: #60a5fa; font-size: 22px; font-weight: 700;
-}
-.amount-row.deposit-note {
-background: linear-gradient(135deg, rgba(168,85,247,0.1), rgba(168,85,247,0.04));
-border: 1px solid rgba(168,85,247,0.18);
-}
-.amount-row.deposit-note .label { color: #c084fc; font-weight: 600; }
-.amount-row.deposit-note .value { color: #c084fc; }
+.amount-row.total { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.06)); border: 1px solid rgba(59,130,246,0.2); }
+.amount-row.total .value { color: #60a5fa; font-size: 22px; font-weight: 700; }
+.amount-row.deposit-note { background: linear-gradient(135deg, rgba(249,115,22,0.1), rgba(249,115,22,0.04)); border: 1px solid rgba(249,115,22,0.18); }
+.amount-row.deposit-note .label { color: #fb923c; font-weight: 600; }
+.amount-row.deposit-note .value { color: #fb923c; }
 
 .payment-section { padding: 24px; }
 .wallet-buttons { margin-bottom: 20px; }
@@ -275,64 +235,64 @@ ${companyLogoUrl
 <div class="container">
 <div class="invoice-section">
 <div class="invoice-header">
-  <span class="invoice-number">Invoice ${invoice.invoice_number || invoiceId.slice(0, 8).toUpperCase()}</span>
-  <span class="invoice-status ${statusClass}">${statusLabel}</span>
+<span class="invoice-number">Invoice ${invoice.invoice_number || invoiceId.slice(0, 8).toUpperCase()}</span>
+<span class="invoice-status ${statusClass}">${statusLabel}</span>
 </div>
 <div class="customer-name">${invoice.customer_name || 'Customer'}</div>
 ${lineItemsHtml}
 <div class="amount-grid">
-  ${summaryRowsHtml}
+${summaryRowsHtml}
 </div>
 </div>
 
 <div class="payment-section">
 <div class="wallet-buttons">
-  <div id="apple-pay-container" class="apple-pay-button"></div>
+<div id="apple-pay-container" class="apple-pay-button"></div>
 </div>
 <div class="wallet-divider" id="wallet-divider" style="display:none;">or pay with</div>
 
 <div class="method-toggle">
-  <button class="method-btn active" id="card-tab" onclick="switchMethod('card')">
-    <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
-    Credit Card
-  </button>
-  <button class="method-btn" id="ach-tab" onclick="switchMethod('ach')">
-    <svg viewBox="0 0 24 24"><path d="M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zm-5-9L2 6v2h20V6z"/></svg>
-    Bank Account
-  </button>
+<button class="method-btn active" id="card-tab" onclick="switchMethod('card')">
+  <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+  Credit Card
+</button>
+<button class="method-btn" id="ach-tab" onclick="switchMethod('ach')">
+  <svg viewBox="0 0 24 24"><path d="M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zm-5-9L2 6v2h20V6z"/></svg>
+  Bank Account
+</button>
 </div>
 
 <div id="card-fields" class="fields-group active">
-  <label class="field-label">Card Number</label>
-  <div id="ccnumber" class="collect-field"></div>
-  <div class="row-2">
-    <div>
-      <label class="field-label">Expiration</label>
-      <div id="ccexp" class="collect-field"></div>
-    </div>
-    <div>
-      <label class="field-label">CVV</label>
-      <div id="cvv" class="collect-field"></div>
-    </div>
+<label class="field-label">Card Number</label>
+<div id="ccnumber" class="collect-field"></div>
+<div class="row-2">
+  <div>
+    <label class="field-label">Expiration</label>
+    <div id="ccexp" class="collect-field"></div>
   </div>
+  <div>
+    <label class="field-label">CVV</label>
+    <div id="cvv" class="collect-field"></div>
+  </div>
+</div>
 </div>
 
 <div id="ach-fields" class="fields-group">
-  <label class="field-label">Account Holder Name</label>
-  <div id="checkname" class="collect-field"></div>
-  <label class="field-label">Routing Number</label>
-  <div id="checkaba" class="collect-field"></div>
-  <label class="field-label">Account Number</label>
-  <div id="checkaccount" class="collect-field"></div>
+<label class="field-label">Account Holder Name</label>
+<div id="checkname" class="collect-field"></div>
+<label class="field-label">Routing Number</label>
+<div id="checkaba" class="collect-field"></div>
+<label class="field-label">Account Number</label>
+<div id="checkaccount" class="collect-field"></div>
 </div>
 
 <div class="vault-info">
-  <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.89 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
-  <span>Your payment method will be securely saved for future billing.</span>
+<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.89 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+<span>Your payment method will be securely saved for future billing.</span>
 </div>
 
 <button id="pay-btn" onclick="submitPayment()" disabled>
-  Pay $${balanceDue}
+Pay $${balanceDue}
 </button>
 <div id="status"></div>
 </div>
@@ -343,9 +303,7 @@ ${lineItemsHtml}
 Secured by NMI &bull; PCI-DSS Compliant
 </div>
 
-<script src="https://secure.nmi.com/token/Collect.js"
-data-tokenization-key="${nmiPublicKey}"
-></script>
+<script src="https://secure.nmi.com/token/Collect.js" data-tokenization-key="${nmiPublicKey}"></script>
 
 <script>
 var paymentToken = null;
@@ -356,34 +314,34 @@ function initCollect() {
 if (typeof CollectJS === 'undefined') return false;
 try {
 CollectJS.configure({
-  variant: 'inline',
-  styleSniffer: false,
-  fields: {
-    ccnumber: { selector: '#ccnumber', title: 'Card Number', placeholder: '0000 0000 0000 0000' },
-    ccexp: { selector: '#ccexp', title: 'Expiration', placeholder: 'MM / YY' },
-    cvv: { selector: '#cvv', title: 'CVV', placeholder: '***' },
-    checkname: { selector: '#checkname', title: 'Account Holder Name', placeholder: 'John Doe' },
-    checkaba: { selector: '#checkaba', title: 'Routing Number', placeholder: '000000000' },
-    checkaccount: { selector: '#checkaccount', title: 'Account Number', placeholder: '0000000000' }
-  },
-  customCss: { 'color': '#FFFFFF', 'font-size': '16px', 'font-family': '-apple-system, BlinkMacSystemFont, sans-serif', 'background-color': 'transparent', 'border': 'none', 'outline': 'none' },
-  focusCss: { 'color': '#FFFFFF' },
-  placeholderCss: { 'color': '#4b5563' },
-  invalidCss: { 'color': '#ef4444' },
-  price: '${balanceDue}',
-  currency: 'USD',
-  country: 'US',
-  fieldsAvailableCallback: function() {
-    collectReady = true;
-    document.getElementById('pay-btn').disabled = false;
-  },
-  callback: function(response) {
-    paymentToken = response.token;
-    submitToServer();
-  },
-  validationCallback: function(field, status, message) {
-    console.log('Validation:', field, status, message);
-  }
+variant: 'inline',
+styleSniffer: false,
+fields: {
+  ccnumber: { selector: '#ccnumber', title: 'Card Number', placeholder: '0000 0000 0000 0000' },
+  ccexp: { selector: '#ccexp', title: 'Expiration', placeholder: 'MM / YY' },
+  cvv: { selector: '#cvv', title: 'CVV', placeholder: '***' },
+  checkname: { selector: '#checkname', title: 'Account Holder Name', placeholder: 'John Doe' },
+  checkaba: { selector: '#checkaba', title: 'Routing Number', placeholder: '000000000' },
+  checkaccount: { selector: '#checkaccount', title: 'Account Number', placeholder: '0000000000' }
+},
+customCss: { 'color': '#FFFFFF', 'font-size': '16px', 'font-family': '-apple-system, BlinkMacSystemFont, sans-serif', 'background-color': 'transparent', 'border': 'none', 'outline': 'none' },
+focusCss: { 'color': '#FFFFFF' },
+placeholderCss: { 'color': '#4b5563' },
+invalidCss: { 'color': '#ef4444' },
+price: '${balanceDue}',
+currency: 'USD',
+country: 'US',
+fieldsAvailableCallback: function() {
+  collectReady = true;
+  document.getElementById('pay-btn').disabled = false;
+},
+callback: function(response) {
+  paymentToken = response.token;
+  submitToServer();
+},
+validationCallback: function(field, status, message) {
+  console.log('Validation:', field, status, message);
+}
 });
 } catch (e) {
 console.error('Collect.js configure error:', e);
@@ -398,11 +356,11 @@ var attempts = 0;
 var interval = setInterval(function() {
 attempts++;
 if (initCollect() || attempts > 50) {
-  clearInterval(interval);
-  if (attempts > 50 && !collectReady) {
-    document.getElementById('status').className = 'error';
-    document.getElementById('status').textContent = 'Payment form failed to load. Please refresh the page.';
-  }
+clearInterval(interval);
+if (attempts > 50 && !collectReady) {
+  document.getElementById('status').className = 'error';
+  document.getElementById('status').textContent = 'Payment form failed to load. Please refresh the page.';
+}
 }
 }, 200);
 }
@@ -432,33 +390,33 @@ var btn = document.getElementById('pay-btn');
 var status = document.getElementById('status');
 try {
 var res = await fetch('${processUrl}', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    payment_token: paymentToken,
-    invoice_id: '${invoiceId}',
-    amount: ${invoice.balance_due},
-    payment_method: currentMethod,
-    save_to_vault: true,
-    customer_name: '${customerName}',
-    customer_email: '${customerEmail}'
-  })
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+  payment_token: paymentToken,
+  invoice_id: '${invoiceId}',
+  amount: ${amountDue},
+  payment_method: currentMethod,
+  save_to_vault: true,
+  customer_name: '${customerName}',
+  customer_email: '${customerEmail}'
+})
 });
 var data = await res.json();
 if (data.success) {
-  document.querySelector('.payment-section').innerHTML =
-    '<div class="success-container">' +
-      '<div class="success-icon">' +
-        '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
-      '</div>' +
-      '<h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Payment Successful</h2>' +
-      '<p style="color: #9ca3af; font-size: 15px;">Thank you for your payment of <strong style="color: #fff;">$${balanceDue}</strong></p>' +
-      '<p style="color: #6b7280; font-size: 13px; margin-top: 12px;">A confirmation will be sent to your email.</p>' +
-    '</div>';
+document.querySelector('.payment-section').innerHTML =
+  '<div class="success-container">' +
+    '<div class="success-icon">' +
+      '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
+    '</div>' +
+    '<h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Payment Successful</h2>' +
+    '<p style="color: #9ca3af; font-size: 15px;">Thank you for your payment of <strong style="color: #fff;">$${balanceDue}</strong></p>' +
+    '<p style="color: #6b7280; font-size: 13px; margin-top: 12px;">A confirmation will be sent to your email.</p>' +
+  '</div>';
 } else {
-  status.className = 'error';
-  status.textContent = data.error || 'Payment failed. Please try again.';
-  btn.disabled = false;
+status.className = 'error';
+status.textContent = data.error || 'Payment failed. Please try again.';
+btn.disabled = false;
 }
 } catch (e) {
 status.className = 'error';
