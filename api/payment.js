@@ -10,7 +10,7 @@ if (!invoiceId) {
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const nmiPublicKey = process.env.NMI_PUBLIC_KEY;
+const nmiPublicKey = process.env.NMI_PUBLIC_KEY || "checkout_public_Ahqyu2pp5FfRv892dFjB7Yy6JS53CD4A";
 const companyLogoUrl = process.env.COMPANY_LOGO_URL || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
