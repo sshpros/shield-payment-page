@@ -248,6 +248,7 @@ ${summaryRowsHtml}
 <div class="payment-section">
 <div class="wallet-buttons">
 <div id="apple-pay-container" class="apple-pay-button"></div>
+<div id="google-pay-container" class="apple-pay-button"></div>
 </div>
 <div class="wallet-divider" id="wallet-divider" style="display:none;">or pay with</div>
 
@@ -303,7 +304,10 @@ Pay $${balanceDue}
 Secured by NMI &bull; PCI-DSS Compliant
 </div>
 
-<script src="https://secure.nmi.com/token/Collect.js" data-tokenization-key="${nmiPublicKey}"></script>
+<script src="https://secure.nmi.com/token/Collect.js"
+data-tokenization-key="${nmiPublicKey}"
+data-field-apple-pay-selector="#apple-pay-container"
+data-field-google-pay-selector="#google-pay-container"></script>
 
 <script>
 var paymentToken = null;
@@ -366,6 +370,17 @@ if (attempts > 50 && !collectReady) {
 }
 
 document.addEventListener('DOMContentLoaded', waitForCollect);
+
+// Reveal the "or pay with" divider only once a wallet button (Apple/Google Pay)
+// has actually rendered — Collect.js only renders these on capable devices and
+// when the merchant + domain are registered, so on other devices nothing shows.
+setTimeout(function() {
+var ap = document.getElementById('apple-pay-container');
+var gp = document.getElementById('google-pay-container');
+if ((ap && ap.children.length) || (gp && gp.children.length)) {
+  document.getElementById('wallet-divider').style.display = '';
+}
+}, 1500);
 
 function switchMethod(method) {
 currentMethod = method;
