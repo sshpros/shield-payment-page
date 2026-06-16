@@ -187,8 +187,8 @@ padding: 20px;
 .amount-row.deposit-note .value { color: #fb923c; }
 
 .payment-section { padding: 24px; }
-.wallet-buttons { margin-bottom: 20px; }
-.apple-pay-button { min-height: 48px; border-radius: 12px; overflow: hidden; }
+.wallet-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
+.apple-pay-button { flex: 1; min-height: 48px; }
 .wallet-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: #6b7280; font-size: 13px; }
 .wallet-divider::before, .wallet-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
 .method-toggle { display: flex; gap: 8px; margin-bottom: 24px; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 4px; }
@@ -307,7 +307,13 @@ Secured by NMI &bull; PCI-DSS Compliant
 <script src="https://secure.nmi.com/token/Collect.js"
 data-tokenization-key="${nmiPublicKey}"
 data-field-apple-pay-selector="#apple-pay-container"
-data-field-google-pay-selector="#google-pay-container"></script>
+data-field-apple-pay-type="plain"
+data-field-apple-pay-style-button-style="white"
+data-field-apple-pay-style-height="48px"
+data-field-apple-pay-style-border-radius="12px"
+data-field-google-pay-selector="#google-pay-container"
+data-field-google-pay-button-type="plain"
+data-field-google-pay-button-color="white"></script>
 
 <script>
 var paymentToken = null;
@@ -375,11 +381,14 @@ document.addEventListener('DOMContentLoaded', waitForCollect);
 // has actually rendered — Collect.js only renders these on capable devices and
 // when the merchant + domain are registered, so on other devices nothing shows.
 setTimeout(function() {
-var ap = document.getElementById('apple-pay-container');
-var gp = document.getElementById('google-pay-container');
-if ((ap && ap.children.length) || (gp && gp.children.length)) {
-  document.getElementById('wallet-divider').style.display = '';
-}
+var anyShown = false;
+['apple-pay-container', 'google-pay-container'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (el.children.length) { anyShown = true; }
+  else { el.style.display = 'none'; } // collapse the empty slot so the other fills the row
+});
+if (anyShown) document.getElementById('wallet-divider').style.display = '';
 }, 1500);
 
 function switchMethod(method) {
