@@ -193,7 +193,12 @@ padding: 20px;
    directly to the button element rounds its border natively (no clipping), which
    avoids the corner-clipped outline that overflow:hidden on the container caused.
    No-op if Google renders the button inside a cross-origin iframe (stays square). */
-#google-pay-container button, #google-pay-container .gpay-button { border-radius: 12px !important; }
+#google-pay-container, #google-pay-container button, #google-pay-container .gpay-button {
+  border-radius: 12px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 48px !important;
+}
 .wallet-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: #6b7280; font-size: 13px; }
 .wallet-divider::before, .wallet-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
 .method-toggle { display: flex; gap: 8px; margin-bottom: 24px; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 4px; }
