@@ -189,6 +189,11 @@ padding: 20px;
 .payment-section { padding: 24px; }
 .wallet-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
 .apple-pay-button { flex: 1; min-height: 48px; }
+/* Round the Google Pay button to match Apple Pay (12px). border-radius applied
+   directly to the button element rounds its border natively (no clipping), which
+   avoids the corner-clipped outline that overflow:hidden on the container caused.
+   No-op if Google renders the button inside a cross-origin iframe (stays square). */
+#google-pay-container button, #google-pay-container .gpay-button { border-radius: 12px !important; }
 .wallet-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: #6b7280; font-size: 13px; }
 .wallet-divider::before, .wallet-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
 .method-toggle { display: flex; gap: 8px; margin-bottom: 24px; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 4px; }
@@ -310,7 +315,7 @@ data-field-apple-pay-selector="#apple-pay-container"
 data-field-apple-pay-type="plain"
 data-field-apple-pay-style-button-style="white"
 data-field-apple-pay-style-height="48px"
-data-field-apple-pay-style-border-radius="0px"
+data-field-apple-pay-style-border-radius="12px"
 data-field-google-pay-selector="#google-pay-container"
 data-field-google-pay-button-type="plain"
 data-field-google-pay-button-color="white"></script>
