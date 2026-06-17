@@ -312,12 +312,12 @@ Secured by NMI &bull; PCI-DSS Compliant
 <script src="https://secure.nmi.com/token/Collect.js"
 data-tokenization-key="${nmiPublicKey}"
 data-field-apple-pay-selector="#apple-pay-container"
-data-field-apple-pay-type="plain"
+data-field-apple-pay-type="buy"
 data-field-apple-pay-style-button-style="white"
 data-field-apple-pay-style-height="40px"
-data-field-apple-pay-style-border-radius="12px"
+data-field-apple-pay-style-border-radius="8px"
 data-field-google-pay-selector="#google-pay-container"
-data-field-google-pay-button-type="plain"
+data-field-google-pay-button-type="buy"
 data-field-google-pay-button-color="white"></script>
 
 <script>
