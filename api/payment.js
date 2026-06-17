@@ -68,19 +68,45 @@ try {
 
 const sortedItems = [...lineItems].sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
 
-const lineItemsHtml = sortedItems.length > 0
+// Dispatch is stored on the invoice (not as a line item) and is already in `subtotal`.
+// Surface it in the breakdown so the items visibly sum to the subtotal: as its own
+// "Dispatch" row when itemized, or folded into the labor line when bundled.
+const dispatchFee = Number(invoice.dispatch_fee || 0);
+const dispatchItemized = invoice.dispatch_itemized !== false; // default true
+const displayItems = [...sortedItems];
+if (dispatchFee > 0) {
+  if (dispatchItemized) {
+    displayItems.push({ description: "Dispatch", quantity: 1, unit_price: dispatchFee });
+  } else {
+    const laborIdx = displayItems.findIndex(it => String(it.category || "").toLowerCase() === "labor");
+    if (laborIdx >= 0) {
+      const it = displayItems[laborIdx];
+      const base = Number(it.quantity || 1) * Number(it.unit_price || it.unitPrice || 0);
+      displayItems[laborIdx] = {
+        ...it,
+        __bundledAmount: base + dispatchFee,
+        __bundledLabel: (it.description || it.name || "Labor") + " + dispatch",
+      };
+    } else {
+      displayItems.push({ description: "Labor & Dispatch", quantity: 1, unit_price: dispatchFee });
+    }
+  }
+}
+
+const lineItemsHtml = displayItems.length > 0
   ? `<div class="line-items-section">
        <div class="line-items-title">What you're paying for</div>
        <div class="line-items-header">
          <span>Description</span>
          <span>Amount</span>
        </div>
-       ${sortedItems.map(item => {
-         const desc = escapeHtml(item.description || item.name || "Item");
+       ${displayItems.map(item => {
+         const desc = escapeHtml(item.__bundledLabel || item.description || item.name || "Item");
          const qty = Number(item.quantity || 1);
          const unitPrice = Number(item.unit_price || item.unitPrice || 0);
-         const amount = (qty * unitPrice).toFixed(2);
-         const qtyLabel = qty !== 1 ? `<div class="line-item-qty">Qty ${qty} &times; $${unitPrice.toFixed(2)}</div>` : '';
+         const isBundled = item.__bundledAmount != null;
+         const amount = (isBundled ? item.__bundledAmount : qty * unitPrice).toFixed(2);
+         const qtyLabel = (qty !== 1 && !isBundled) ? `<div class="line-item-qty">Qty ${qty} &times; $${unitPrice.toFixed(2)}</div>` : '';
          return `<div class="line-item-row">
            <div class="line-item-desc">
              <div class="line-item-name">${desc}</div>
