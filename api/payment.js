@@ -193,7 +193,7 @@ padding: 20px;
    overridable via CSS), so it can't be stretched to full width like Apple Pay.
    Stacked layout + centering keeps it tidy; 12px radius matches Apple Pay. */
 #google-pay-container { display: flex; justify-content: center; }
-#google-pay-container button, #google-pay-container .gpay-button { border-radius: 12px !important; }
+#google-pay-container button, #google-pay-container .gpay-button { border-radius: 12px !important; transform: scale(1.06); transform-origin: center; }
 .wallet-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: #6b7280; font-size: 13px; }
 .wallet-divider::before, .wallet-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
 .method-toggle { display: flex; gap: 8px; margin-bottom: 24px; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 4px; }
