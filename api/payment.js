@@ -118,6 +118,35 @@ const lineItemsHtml = displayItems.length > 0
      </div>`
   : '';
 
+// --- Payments made (itemized from the payments table — source of truth) ---
+let invoicePayments = [];
+try {
+  const { data: pmts } = await supabase
+    .from("payments")
+    .select("amount, payment_type, label, payment_date")
+    .eq("invoice_id", invoiceId)
+    .order("payment_date", { ascending: true });
+  invoicePayments = pmts || [];
+} catch (e) { invoicePayments = []; }
+
+function fmtPayDate(s) {
+  if (!s) return "";
+  try { return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
+  catch { return ""; }
+}
+
+// Itemized list of each payment (label or type + date). Falls back to the aggregate
+// "Payments Made" line if the table has no rows for this invoice yet.
+const paymentsListHtml = invoicePayments.length > 0
+  ? invoicePayments.map(p => {
+      const amt = Number(p.amount || 0);
+      const isRefund = (p.payment_type || "") === "Refund";
+      const name = (p.label && p.label.trim()) ? p.label : (p.payment_type || "Payment");
+      const d = fmtPayDate(p.payment_date);
+      return `<div class="amount-row"><span class="label">${escapeHtml(name)}${d ? ` &middot; ${d}` : ""}</span><span class="value" style="color:#22c55e">${isRefund ? "+" : "&#8722;"}$${Math.abs(amt).toFixed(2)}</span></div>`;
+    }).join("")
+  : (paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color:#22c55e">&#8722;$${paymentsMade.toFixed(2)}</span></div>` : "");
+
 // --- Summary rows ---
 let summaryRowsHtml = '';
 if (isDepositInvoice) {
@@ -132,7 +161,7 @@ if (isDepositInvoice) {
       <span class="label">Deposit Required (50%)</span>
       <span class="value">$${depositRequired.toFixed(2)}</span>
     </div>
-    ${paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color: #22c55e">&#8722;$${paymentsMade.toFixed(2)}</span></div>` : ''}
+    ${paymentsListHtml}
     <div class="amount-row total">
       <span class="label">Balance Due Now</span>
       <span class="value">$${balanceDue}</span>
@@ -147,7 +176,7 @@ if (isDepositInvoice) {
       <span class="value">$${fullInvoiceTotal.toFixed(2)}</span>
     </div>
     ${depositAmount > 0 ? `<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ${depositPaid ? '#22c55e' : '#eab308'}">${depositPaid ? '&#8722;' : ''}$${depositAmount.toFixed(2)}${depositPaid ? ' &#10003;' : ' (unpaid)'}</span></div>` : ''}
-    ${paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color: #22c55e">&#8722;$${paymentsMade.toFixed(2)}</span></div>` : ''}
+    ${paymentsListHtml}
     <div class="amount-row total">
       <span class="label">Amount Due</span>
       <span class="value">$${balanceDue}</span>
