@@ -217,7 +217,7 @@ align-items: center;
 padding: 20px;
 }
 .header { text-align: center; margin: 40px 0 32px; }
-.company-logo { width: 72px; height: 72px; border-radius: 16px; object-fit: contain; margin: 0 auto 16px; display: block; box-shadow: 0 8px 32px rgba(59,130,246,0.25); }
+.company-logo { width: 110px; height: 110px; object-fit: contain; margin: 0 auto 12px; display: block; filter: drop-shadow(0 8px 24px rgba(59,130,246,0.35)); }
 .logo-fallback { width: 56px; height: 56px; background: linear-gradient(135deg, #1a5fc7, #3b82f6); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 8px 32px rgba(59,130,246,0.3); }
 .logo-fallback svg { width: 28px; height: 28px; fill: white; }
 .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.3px; }
