@@ -40,8 +40,18 @@ const taxAmount = Number(invoice.tax_amount || 0);
 const depositAmount = Number(invoice.deposit_amount || 0);
 const depositPaid = invoice.deposit_paid || false;
 
+// Phase 2 single invoices are deposit-flagged with the FULL job total: once the
+// deposit is in, the REMAINING BALANCE is due (the old rule treated any deposit
+// invoice as deposit-only, so a paid deposit rendered "Paid in Full" while half
+// the job was still owed). Legacy deposit-only slices (total == deposit) keep
+// the old behavior.
+const isLegacyDepositOnly =
+  isDepositInvoice && fullInvoiceTotal <= depositRequired + 0.01;
+const depositStillOwed = Math.max(0, depositRequired - paymentsMade);
 const amountDue = isDepositInvoice && depositRequired > 0
-  ? Math.max(0, depositRequired - paymentsMade)
+  ? (isLegacyDepositOnly || depositStillOwed > 0.01
+      ? depositStillOwed
+      : Math.max(0, fullInvoiceTotal - paymentsMade))
   : Number(invoice.balance_due || 0);
 const balanceDue = amountDue.toFixed(2);
 
@@ -158,7 +168,7 @@ if (isDepositInvoice) {
       <span class="value">$${fullInvoiceTotal.toFixed(2)}</span>
     </div>
     <div class="amount-row deposit-note">
-      <span class="label">Deposit Required (50%)</span>
+      <span class="label">${depositStillOwed > 0.01 ? 'Deposit Required' : 'Deposit Received &#10003;'}</span>
       <span class="value">$${depositRequired.toFixed(2)}</span>
     </div>
     ${paymentsListHtml}
@@ -184,8 +194,9 @@ if (isDepositInvoice) {
   `;
 }
 
-const statusLabel = isDepositInvoice ? 'Deposit Due' : (depositPaid ? 'Deposit Paid' : 'Payment Due');
-const statusClass = isDepositInvoice ? 'status-deposit' : (depositPaid ? 'status-partial' : 'status-pending');
+const depositSatisfied = isDepositInvoice && depositStillOwed <= 0.01;
+const statusLabel = isDepositInvoice ? (depositSatisfied ? 'Balance Due' : 'Deposit Due') : (depositPaid ? 'Deposit Paid' : 'Payment Due');
+const statusClass = isDepositInvoice ? (depositSatisfied ? 'status-partial' : 'status-deposit') : (depositPaid ? 'status-partial' : 'status-pending');
 
 const html = `<!DOCTYPE html>
 <html lang="en">
