@@ -63,6 +63,7 @@ if (amountDue <= 0) {
 const processUrl = `${supabaseUrl}/functions/v1/process-payment`;
 const customerName = (invoice.customer_name || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
 const customerEmail = (invoice.customer_email || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
+const customerAddress = (invoice.customer_address || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
 // --- Line items ---
 let lineItems = [];
@@ -358,6 +359,24 @@ ${summaryRowsHtml}
 <div id="checkaccount" class="collect-field"></div>
 </div>
 
+<div style="margin-top:16px;">
+<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#e5e7eb;cursor:pointer;">
+<input type="checkbox" id="billing-same" checked onchange="toggleBilling()" style="width:18px;height:18px;accent-color:#2563eb;">
+Billing name &amp; address same as service
+</label>
+<div id="billing-fields" style="display:none;margin-top:12px;">
+<label class="field-label">Billing Name (as on card)</label>
+<input type="text" id="billing-name" value="${customerName}" style="width:100%;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;margin-bottom:10px;">
+<label class="field-label">Billing Address</label>
+<input type="text" id="billing-address" value="${customerAddress}" style="width:100%;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;margin-bottom:10px;">
+<div style="display:flex;gap:8px;">
+<input type="text" id="billing-city" placeholder="City" style="flex:2;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
+<input type="text" id="billing-state" placeholder="State" style="flex:1;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
+<input type="text" id="billing-zip" placeholder="ZIP" style="flex:1;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
+</div>
+</div>
+</div>
+
 <div class="vault-info">
 <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.89 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
 <span>Your payment method will be securely saved for future billing.</span>
@@ -480,6 +499,20 @@ status.textContent = 'Processing...';
 CollectJS.startPaymentRequest();
 }
 
+function toggleBilling() {
+var same = document.getElementById('billing-same').checked;
+document.getElementById('billing-fields').style.display = same ? 'none' : 'block';
+}
+
+// Billing fields feed AVS: when "same as service" is checked, the invoice's
+// service name/address go through; otherwise the entered values do.
+function billingValue(id, fallback) {
+var same = document.getElementById('billing-same').checked;
+if (same) return fallback;
+var el = document.getElementById(id);
+return el ? el.value.trim() : fallback;
+}
+
 async function submitToServer() {
 var btn = document.getElementById('pay-btn');
 var status = document.getElementById('status');
@@ -494,7 +527,12 @@ body: JSON.stringify({
   payment_method: currentMethod,
   save_to_vault: true,
   customer_name: '${customerName}',
-  customer_email: '${customerEmail}'
+  customer_email: '${customerEmail}',
+  billing_name: billingValue('billing-name', '${customerName}'),
+  billing_address1: billingValue('billing-address', '${customerAddress}'),
+  billing_city: billingValue('billing-city', ''),
+  billing_state: billingValue('billing-state', ''),
+  billing_zip: billingValue('billing-zip', '')
 })
 });
 var data = await res.json();
