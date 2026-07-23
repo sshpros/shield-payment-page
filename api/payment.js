@@ -370,9 +370,9 @@ Billing name &amp; address same as service
 <label class="field-label">Billing Address</label>
 <input type="text" id="billing-address" value="${customerAddress}" style="width:100%;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;margin-bottom:10px;">
 <div style="display:flex;gap:8px;">
-<input type="text" id="billing-city" placeholder="City" style="flex:2;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
-<input type="text" id="billing-state" placeholder="State" style="flex:1;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
-<input type="text" id="billing-zip" placeholder="ZIP" style="flex:1;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
+<input type="text" id="billing-city" placeholder="City" style="flex:2;min-width:0;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
+<input type="text" id="billing-state" placeholder="State" style="flex:1;min-width:0;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
+<input type="text" id="billing-zip" placeholder="ZIP" style="flex:1;min-width:0;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
 </div>
 </div>
 </div>
