@@ -22,7 +22,7 @@ if (!nmiPublicKey) {
 const { data: invoice, error } = await supabase
   .from("invoices")
   .select("*")
-  .eq("id", invoiceId)
+  .ilike("id", invoiceId)
   .single();
 
 if (error || !invoice) {
@@ -522,7 +522,7 @@ method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
   payment_token: paymentToken,
-  invoice_id: '${invoiceId}',
+  invoice_id: '${invoice.id}',
   amount: ${amountDue},
   payment_method: currentMethod,
   save_to_vault: true,
