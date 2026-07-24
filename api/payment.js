@@ -55,6 +55,9 @@ const amountDue = isDepositInvoice && depositRequired > 0
   : Number(invoice.balance_due || 0);
 const money = (n) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const balanceDue = money(amountDue);
+// Machine-facing amount for CollectJS wallet config — Apple/Google Pay reject
+// comma-formatted prices ("1,609.60"); display strings must never reach it.
+const balanceDueRaw = amountDue.toFixed(2);
 
 if (amountDue <= 0) {
   res.setHeader("Content-Type", "text/html");
@@ -429,7 +432,7 @@ customCss: { 'color': '#FFFFFF', 'font-size': '16px', 'font-family': '-apple-sys
 focusCss: { 'color': '#FFFFFF' },
 placeholderCss: { 'color': '#4b5563' },
 invalidCss: { 'color': '#ef4444' },
-price: '${balanceDue}',
+price: '${balanceDueRaw}',
 currency: 'USD',
 country: 'US',
 fieldsAvailableCallback: function() {
