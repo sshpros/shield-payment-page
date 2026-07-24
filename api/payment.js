@@ -53,7 +53,8 @@ const amountDue = isDepositInvoice && depositRequired > 0
       ? depositStillOwed
       : Math.max(0, fullInvoiceTotal - paymentsMade))
   : Number(invoice.balance_due || 0);
-const balanceDue = amountDue.toFixed(2);
+const money = (n) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const balanceDue = money(amountDue);
 
 if (amountDue <= 0) {
   res.setHeader("Content-Type", "text/html");
@@ -116,8 +117,8 @@ const lineItemsHtml = displayItems.length > 0
          const qty = Number(item.quantity || 1);
          const unitPrice = Number(item.unit_price || item.unitPrice || 0);
          const isBundled = item.__bundledAmount != null;
-         const amount = (isBundled ? item.__bundledAmount : qty * unitPrice).toFixed(2);
-         const qtyLabel = (qty !== 1 && !isBundled) ? `<div class="line-item-qty">Qty ${qty} &times; $${unitPrice.toFixed(2)}</div>` : '';
+         const amount = money(isBundled ? item.__bundledAmount : qty * unitPrice);
+         const qtyLabel = (qty !== 1 && !isBundled) ? `<div class="line-item-qty">Qty ${qty} &times; $${money(unitPrice)}</div>` : '';
          return `<div class="line-item-row">
            <div class="line-item-desc">
              <div class="line-item-name">${desc}</div>
@@ -154,23 +155,23 @@ const paymentsListHtml = invoicePayments.length > 0
       const isRefund = (p.payment_type || "") === "Refund";
       const name = (p.label && p.label.trim()) ? p.label : (p.payment_type || "Payment");
       const d = fmtPayDate(p.payment_date);
-      return `<div class="amount-row"><span class="label">${escapeHtml(name)}${d ? ` &middot; ${d}` : ""}</span><span class="value" style="color:#22c55e">${isRefund ? "+" : "&#8722;"}$${Math.abs(amt).toFixed(2)}</span></div>`;
+      return `<div class="amount-row"><span class="label">${escapeHtml(name)}${d ? ` &middot; ${d}` : ""}</span><span class="value" style="color:#22c55e">${isRefund ? "+" : "&#8722;"}$${money(Math.abs(amt))}</span></div>`;
     }).join("")
-  : (paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color:#22c55e">&#8722;$${paymentsMade.toFixed(2)}</span></div>` : "");
+  : (paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color:#22c55e">&#8722;$${money(paymentsMade)}</span></div>` : "");
 
 // --- Summary rows ---
 let summaryRowsHtml = '';
 if (isDepositInvoice) {
   summaryRowsHtml = `
-    ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${subtotal.toFixed(2)}</span></div>` : ''}
-    ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${taxAmount.toFixed(2)}</span></div>` : ''}
+    ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${money(subtotal)}</span></div>` : ''}
+    ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${money(taxAmount)}</span></div>` : ''}
     <div class="amount-row">
       <span class="label">Invoice Total (full scope)</span>
-      <span class="value">$${fullInvoiceTotal.toFixed(2)}</span>
+      <span class="value">$${money(fullInvoiceTotal)}</span>
     </div>
     <div class="amount-row deposit-note">
       <span class="label">${depositStillOwed > 0.01 ? 'Deposit Required' : 'Deposit Received &#10003;'}</span>
-      <span class="value">$${depositRequired.toFixed(2)}</span>
+      <span class="value">$${money(depositRequired)}</span>
     </div>
     ${paymentsListHtml}
     <div class="amount-row total">
@@ -180,13 +181,13 @@ if (isDepositInvoice) {
   `;
 } else {
   summaryRowsHtml = `
-    ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${subtotal.toFixed(2)}</span></div>` : ''}
-    ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${taxAmount.toFixed(2)}</span></div>` : ''}
+    ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${money(subtotal)}</span></div>` : ''}
+    ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${money(taxAmount)}</span></div>` : ''}
     <div class="amount-row">
       <span class="label">Invoice Total</span>
-      <span class="value">$${fullInvoiceTotal.toFixed(2)}</span>
+      <span class="value">$${money(fullInvoiceTotal)}</span>
     </div>
-    ${depositAmount > 0 ? `<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ${depositPaid ? '#22c55e' : '#eab308'}">${depositPaid ? '&#8722;' : ''}$${depositAmount.toFixed(2)}${depositPaid ? ' &#10003;' : ' (unpaid)'}</span></div>` : ''}
+    ${depositAmount > 0 ? `<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ${depositPaid ? '#22c55e' : '#eab308'}">${depositPaid ? '&#8722;' : ''}$${money(depositAmount)}${depositPaid ? ' &#10003;' : ' (unpaid)'}</span></div>` : ''}
     ${paymentsListHtml}
     <div class="amount-row total">
       <span class="label">Amount Due</span>
