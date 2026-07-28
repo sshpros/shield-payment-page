@@ -50,6 +50,8 @@ const isLegacyDepositOnly =
 // Multi-Pay (in-house financing): the "deposit" is the first of N monthly
 // installments — relabel accordingly. Remaining installments auto-charge.
 const multiPayMonths = Number(invoice.multi_pay_months || 0);
+const financingCharge = Number(invoice.financing_charge_amount || 0);
+const financingPct = Number(invoice.financing_charge_percent || 0);
 const depositStillOwed = Math.max(0, depositRequired - paymentsMade);
 const amountDue = isDepositInvoice && depositRequired > 0
   ? (isLegacyDepositOnly || depositStillOwed > 0.01
@@ -166,11 +168,19 @@ const paymentsListHtml = invoicePayments.length > 0
   : (paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color:#22c55e">&#8722;$${money(paymentsMade)}</span></div>` : "");
 
 // --- Summary rows ---
+// Financing: a real charge renders as its own untaxed row; a Multi-Pay plan at
+// 0% renders a green value-add row instead (Kyle: make 0% a clear Value Add).
+const financingRowHtml = financingCharge > 0.005
+  ? `<div class="amount-row"><span class="label">Financing Charge (${financingPct}%)</span><span class="value">$${money(financingCharge)}</span></div>`
+  : (multiPayMonths > 0
+      ? `<div class="amount-row"><span class="label" style="color:#22c55e;font-weight:700">0% Financing &#10003;</span><span class="value" style="color:#22c55e">$0.00</span></div>`
+      : '');
 let summaryRowsHtml = '';
 if (isDepositInvoice) {
   summaryRowsHtml = `
     ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${money(subtotal)}</span></div>` : ''}
     ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${money(taxAmount)}</span></div>` : ''}
+    ${financingRowHtml}
     <div class="amount-row">
       <span class="label">Invoice Total (full scope)</span>
       <span class="value">$${money(fullInvoiceTotal)}</span>
@@ -192,6 +202,7 @@ if (isDepositInvoice) {
   summaryRowsHtml = `
     ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${money(subtotal)}</span></div>` : ''}
     ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${money(taxAmount)}</span></div>` : ''}
+    ${financingRowHtml}
     <div class="amount-row">
       <span class="label">Invoice Total</span>
       <span class="value">$${money(fullInvoiceTotal)}</span>
