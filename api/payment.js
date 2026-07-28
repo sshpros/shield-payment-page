@@ -47,6 +47,9 @@ const depositPaid = invoice.deposit_paid || false;
 // the old behavior.
 const isLegacyDepositOnly =
   isDepositInvoice && fullInvoiceTotal <= depositRequired + 0.01;
+// Multi-Pay (in-house financing): the "deposit" is the first of N monthly
+// installments — relabel accordingly. Remaining installments auto-charge.
+const multiPayMonths = Number(invoice.multi_pay_months || 0);
 const depositStillOwed = Math.max(0, depositRequired - paymentsMade);
 const amountDue = isDepositInvoice && depositRequired > 0
   ? (isLegacyDepositOnly || depositStillOwed > 0.01
@@ -173,9 +176,12 @@ if (isDepositInvoice) {
       <span class="value">$${money(fullInvoiceTotal)}</span>
     </div>
     <div class="amount-row deposit-note">
-      <span class="label">${depositStillOwed > 0.01 ? 'Deposit Required' : 'Deposit Received &#10003;'}</span>
+      <span class="label">${multiPayMonths > 0
+        ? (depositStillOwed > 0.01 ? `First Installment (1 of ${multiPayMonths})` : 'First Installment Received &#10003;')
+        : (depositStillOwed > 0.01 ? 'Deposit Required' : 'Deposit Received &#10003;')}</span>
       <span class="value">$${money(depositRequired)}</span>
     </div>
+    ${multiPayMonths > 0 ? `<div class="amount-row" style="font-size:12px;opacity:0.75"><span class="label">Multi-Pay plan</span><span class="value">${multiPayMonths} monthly payments &#8212; remaining installments auto-charge to your card</span></div>` : ''}
     ${paymentsListHtml}
     <div class="amount-row total">
       <span class="label">Balance Due Now</span>
@@ -200,7 +206,11 @@ if (isDepositInvoice) {
 }
 
 const depositSatisfied = isDepositInvoice && depositStillOwed <= 0.01;
-const statusLabel = isDepositInvoice ? (depositSatisfied ? 'Balance Due' : 'Deposit Due') : (depositPaid ? 'Deposit Paid' : 'Payment Due');
+const statusLabel = isDepositInvoice
+  ? (multiPayMonths > 0
+      ? (depositSatisfied ? 'Multi-Pay Active' : 'First Installment Due')
+      : (depositSatisfied ? 'Balance Due' : 'Deposit Due'))
+  : (depositPaid ? 'Deposit Paid' : 'Payment Due');
 const statusClass = isDepositInvoice ? (depositSatisfied ? 'status-partial' : 'status-deposit') : (depositPaid ? 'status-partial' : 'status-pending');
 
 const html = `<!DOCTYPE html>
