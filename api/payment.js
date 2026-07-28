@@ -168,6 +168,24 @@ const paymentsListHtml = invoicePayments.length > 0
   : (paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color:#22c55e">&#8722;$${money(paymentsMade)}</span></div>` : "");
 
 // --- Summary rows ---
+// Global discount: invoice.subtotal is ALREADY net of it. Show the customer the
+// PRE-discount subtotal and an explicit green discount row so the line items,
+// subtotal, and total visibly reconcile (hidden discounts read as errors).
+const discountPct = Number(invoice.global_discount_percent || 0);
+let effDiscount = Number(invoice.global_discount_amount || 0);
+if (effDiscount <= 0.005 && discountPct > 0) {
+  // Percent-based discounts may not carry a resolved dollar amount — derive it
+  // from the non-recurring line items (the same base the app applies it to).
+  const lineSum = sortedItems
+    .filter((li) => li.is_recurring !== true)
+    .reduce((s, li) => s + (Number(li.total) || (Number(li.quantity) || 0) * (Number(li.unit_price) || 0) - (Number(li.discount_amount) || 0)), 0);
+  effDiscount = Math.round(lineSum * discountPct) / 100;
+}
+const discountReason = String(invoice.discount_reason || "").trim();
+const discountRowsHtml = effDiscount > 0.005
+  ? `<div class="amount-row"><span class="label" style="color:#22c55e">Discount${discountReason ? ` (${discountReason})` : ""}</span><span class="value" style="color:#22c55e">&#8722;$${money(effDiscount)}</span></div>`
+  : "";
+const preDiscountSubtotal = subtotal + effDiscount;
 // Financing: a real charge renders as its own untaxed row; a Multi-Pay plan at
 // 0% renders a green value-add row instead (Kyle: make 0% a clear Value Add).
 const financingRowHtml = financingCharge > 0.005
@@ -178,7 +196,8 @@ const financingRowHtml = financingCharge > 0.005
 let summaryRowsHtml = '';
 if (isDepositInvoice) {
   summaryRowsHtml = `
-    ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${money(subtotal)}</span></div>` : ''}
+    ${preDiscountSubtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${money(preDiscountSubtotal)}</span></div>` : ''}
+    ${discountRowsHtml}
     ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${money(taxAmount)}</span></div>` : ''}
     ${financingRowHtml}
     <div class="amount-row">
@@ -200,7 +219,8 @@ if (isDepositInvoice) {
   `;
 } else {
   summaryRowsHtml = `
-    ${subtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${money(subtotal)}</span></div>` : ''}
+    ${preDiscountSubtotal > 0 ? `<div class="amount-row"><span class="label">Subtotal</span><span class="value">$${money(preDiscountSubtotal)}</span></div>` : ''}
+    ${discountRowsHtml}
     ${taxAmount > 0 ? `<div class="amount-row"><span class="label">Tax</span><span class="value">$${money(taxAmount)}</span></div>` : ''}
     ${financingRowHtml}
     <div class="amount-row">
