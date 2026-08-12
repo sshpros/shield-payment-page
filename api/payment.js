@@ -126,14 +126,34 @@ const lineItemsHtml = displayItems.length > 0
          const qty = Number(item.quantity || 1);
          const unitPrice = Number(item.unit_price || item.unitPrice || 0);
          const isBundled = item.__bundledAmount != null;
-         const amount = money(isBundled ? item.__bundledAmount : qty * unitPrice);
-         const qtyLabel = (qty !== 1 && !isBundled) ? `<div class="line-item-qty">Qty ${qty} &times; $${money(unitPrice)}</div>` : '';
+         const isRecurring = item.is_recurring === true;
+         // Per-line discounts were ignored here, so a fully-discounted $450
+         // labor line still displayed $450 and the items didn't sum to the
+         // subtotal — customers read the gap as being overcharged (Price
+         // Jenkins, 2026-08-12). Match the estimate page: net amount, with the
+         // original struck through and the saving called out.
+         const gross = qty * unitPrice;
+         const discount = Math.max(0, Math.min(Number(item.discount_amount || 0), gross));
+         const net = isBundled ? item.__bundledAmount : Math.max(0, gross - discount);
+         const amount = money(net);
+         const qtyLabel = (qty !== 1 && !isBundled) ? `<div class="line-item-qty">Qty ${qty} &times; $${money(unitPrice)}${isRecurring ? '/mo' : ''}</div>` : '';
+         const recurringTag = isRecurring
+           ? `<div class="line-item-qty" style="color:#2563eb;font-weight:600;">Monthly service &mdash; billed separately</div>`
+           : '';
+         const struck = discount > 0.005
+           ? `<div class="line-item-qty" style="text-decoration:line-through;">$${money(gross)}</div>`
+           : '';
+         const saved = discount > 0.005
+           ? `<div class="line-item-qty" style="color:#16a34a;font-weight:600;">You save $${money(discount)}</div>`
+           : '';
          return `<div class="line-item-row">
            <div class="line-item-desc">
              <div class="line-item-name">${desc}</div>
              ${qtyLabel}
+             ${recurringTag}
+             ${saved}
            </div>
-           <div class="line-item-amount">$${amount}</div>
+           <div class="line-item-amount">${struck}$${amount}${isRecurring ? '<span style="font-size:11px;color:#6b7280;">/mo</span>' : ''}</div>
          </div>`;
        }).join('')}
      </div>`
