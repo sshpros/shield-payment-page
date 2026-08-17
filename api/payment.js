@@ -165,7 +165,12 @@ try {
   const { data: pmts } = await supabase
     .from("payments")
     .select("amount, payment_type, label, payment_date")
-    .eq("invoice_id", invoiceId)
+    // ilike, and against the CANONICAL invoice.id — not the raw URL param.
+    // The invoice lookup above is already case-insensitive, so a link whose
+    // uuid case differed from the stored rows fetched the invoice fine but
+    // silently returned zero payments, collapsing the itemized history into
+    // the aggregate fallback (Kyle, 2026-08-17).
+    .ilike("invoice_id", invoice.id)
     .order("payment_date", { ascending: true });
   invoicePayments = pmts || [];
 } catch (e) { invoicePayments = []; }
@@ -176,9 +181,14 @@ function fmtPayDate(s) {
   catch { return ""; }
 }
 
+// Per-invoice opt-in (invoices.itemize_payment_history): progress-billed jobs
+// list every payment with its date; everything else keeps the compact summary.
+const itemizePayments = invoice.itemize_payment_history === true;
+const showItemizedPayments = itemizePayments && invoicePayments.length > 0;
+
 // Itemized list of each payment (label or type + date). Falls back to the aggregate
-// "Payments Made" line if the table has no rows for this invoice yet.
-const paymentsListHtml = invoicePayments.length > 0
+// "Payments Made" line when not itemizing or when the table has no rows yet.
+const paymentsListHtml = showItemizedPayments
   ? invoicePayments.map(p => {
       const amt = Number(p.amount || 0);
       const isRefund = (p.payment_type || "") === "Refund";
@@ -248,7 +258,7 @@ if (isDepositInvoice) {
       <span class="label">Invoice Total</span>
       <span class="value">$${money(fullInvoiceTotal)}</span>
     </div>
-    ${depositAmount > 0 ? `<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ${depositPaid ? '#22c55e' : '#eab308'}">${depositPaid ? '&#8722;' : ''}$${money(depositAmount)}${depositPaid ? ' &#10003;' : ' (unpaid)'}</span></div>` : ''}
+    ${depositAmount > 0 && !showItemizedPayments ? `<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ${depositPaid ? '#22c55e' : '#eab308'}">${depositPaid ? '&#8722;' : ''}$${money(depositAmount)}${depositPaid ? ' &#10003;' : ' (unpaid)'}</span></div>` : ''}
     ${paymentsListHtml}
     <div class="amount-row total">
       <span class="label">Amount Due</span>
