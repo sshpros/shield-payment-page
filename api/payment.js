@@ -93,11 +93,15 @@ const sortedItems = [...lineItems].sort((a, b) => (Number(a.sort_order) || 0) - 
 // Surface it in the breakdown so the items visibly sum to the subtotal: as its own
 // "Dispatch" row when itemized, or folded into the labor line when bundled.
 const dispatchFee = Number(invoice.dispatch_fee || 0);
+// Direct dispatch discount (2026-09-14): render like any discounted line —
+// gross struck through, net charged. Stored totals are already net.
+const dispatchDiscount = Math.min(Number(invoice.dispatch_discount_amount || 0), dispatchFee);
+const netDispatch = Math.max(0, dispatchFee - dispatchDiscount);
 const dispatchItemized = invoice.dispatch_itemized !== false; // default true
 const displayItems = [...sortedItems];
 if (dispatchFee > 0) {
   if (dispatchItemized) {
-    displayItems.push({ description: "Dispatch", quantity: 1, unit_price: dispatchFee });
+    displayItems.push({ description: "Dispatch", quantity: 1, unit_price: dispatchFee, discount_amount: dispatchDiscount });
   } else {
     const laborIdx = displayItems.findIndex(it => String(it.category || "").toLowerCase() === "labor");
     if (laborIdx >= 0) {
@@ -105,11 +109,11 @@ if (dispatchFee > 0) {
       const base = Number(it.quantity || 1) * Number(it.unit_price || it.unitPrice || 0);
       displayItems[laborIdx] = {
         ...it,
-        __bundledAmount: base + dispatchFee,
+        __bundledAmount: base + netDispatch,
         __bundledLabel: (it.description || it.name || "Labor") + " + dispatch",
       };
     } else {
-      displayItems.push({ description: "Labor & Dispatch", quantity: 1, unit_price: dispatchFee });
+      displayItems.push({ description: "Labor & Dispatch", quantity: 1, unit_price: netDispatch });
     }
   }
 }
