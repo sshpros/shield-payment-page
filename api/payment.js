@@ -362,6 +362,22 @@ padding: 20px;
 #pay-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(59,130,246,0.4); }
 #pay-btn:active { transform: translateY(0); }
 #pay-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+/* Rotating glow ring — the ONE showpiece on this page. @property lets the
+   conic angle animate (Safari 16.4+); older browsers just show the plain
+   button. Wrapper radius 16 = button 14 + 2px ring (concentric-corner rule). */
+@property --glow-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+#pay-btn-wrap { position: relative; border-radius: 16px; isolation: isolate; }
+#pay-btn-wrap::before, #pay-btn-wrap::after {
+  content: ""; position: absolute; inset: -2px; z-index: -1; border-radius: 16px;
+  background: conic-gradient(from var(--glow-angle), #1a5fc7, #7db8ff, #3b82f6, #b7d7ff, #1a5fc7);
+  animation: glow-rotate 3.5s linear infinite;
+}
+#pay-btn-wrap::after { filter: blur(16px); opacity: 0.5; }
+#pay-btn-wrap:has(#pay-btn:disabled)::before, #pay-btn-wrap:has(#pay-btn:disabled)::after { animation: none; opacity: 0; }
+@keyframes glow-rotate { to { --glow-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) {
+  #pay-btn-wrap::before, #pay-btn-wrap::after { animation: none; }
+}
 #status { text-align: center; margin-top: 16px; font-size: 14px; min-height: 20px; }
 .success { color: #22c55e; }
 .error { color: #ef4444; }
@@ -462,9 +478,11 @@ Billing name &amp; address same as service
 <span>Your payment method will be securely saved for future billing.</span>
 </div>
 
+<div id="pay-btn-wrap">
 <button id="pay-btn" onclick="submitPayment()" disabled>
 Pay $${balanceDue}
 </button>
+</div>
 <div id="status"></div>
 </div>
 </div>
