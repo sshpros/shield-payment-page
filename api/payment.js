@@ -142,13 +142,13 @@ const lineItemsHtml = displayItems.length > 0
          const amount = money(net);
          const qtyLabel = (qty !== 1 && !isBundled) ? `<div class="line-item-qty">Qty ${qty} &times; $${money(unitPrice)}${isRecurring ? '/mo' : ''}</div>` : '';
          const recurringTag = isRecurring
-           ? `<div class="line-item-qty" style="color:#2563eb;font-weight:600;">Monthly service &mdash; billed separately</div>`
+           ? `<div class="line-item-qty" style="color:var(--accent);font-weight:600;">Monthly service &mdash; billed separately</div>`
            : '';
          const struck = discount > 0.005
            ? `<div class="line-item-qty" style="text-decoration:line-through;">$${money(gross)}</div>`
            : '';
          const saved = discount > 0.005
-           ? `<div class="line-item-qty" style="color:#16a34a;font-weight:600;">You save $${money(discount)}</div>`
+           ? `<div class="line-item-qty" style="color:var(--green);font-weight:600;">You save $${money(discount)}</div>`
            : '';
          return `<div class="line-item-row">
            <div class="line-item-desc">
@@ -157,7 +157,7 @@ const lineItemsHtml = displayItems.length > 0
              ${recurringTag}
              ${saved}
            </div>
-           <div class="line-item-amount">${struck}$${amount}${isRecurring ? '<span style="font-size:11px;color:#6b7280;">/mo</span>' : ''}</div>
+           <div class="line-item-amount">${struck}$${amount}${isRecurring ? '<span style="font-size:11px;color:var(--text-3);">/mo</span>' : ''}</div>
          </div>`;
        }).join('')}
      </div>`
@@ -198,9 +198,9 @@ const paymentsListHtml = showItemizedPayments
       const isRefund = (p.payment_type || "") === "Refund";
       const name = (p.label && p.label.trim()) ? p.label : (p.payment_type || "Payment");
       const d = fmtPayDate(p.payment_date);
-      return `<div class="amount-row"><span class="label">${escapeHtml(name)}${d ? ` &middot; ${d}` : ""}</span><span class="value" style="color:#22c55e">${isRefund ? "+" : "&#8722;"}$${money(Math.abs(amt))}</span></div>`;
+      return `<div class="amount-row"><span class="label">${escapeHtml(name)}${d ? ` &middot; ${d}` : ""}</span><span class="value" style="color:var(--green)">${isRefund ? "+" : "&#8722;"}$${money(Math.abs(amt))}</span></div>`;
     }).join("")
-  : (paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color:#22c55e">&#8722;$${money(paymentsMade)}</span></div>` : "");
+  : (paymentsMade > 0 ? `<div class="amount-row"><span class="label">Payments Made</span><span class="value" style="color:var(--green)">&#8722;$${money(paymentsMade)}</span></div>` : "");
 
 // --- Summary rows ---
 // Global discount: invoice.subtotal is ALREADY net of it. Show the customer the
@@ -218,7 +218,7 @@ if (effDiscount <= 0.005 && discountPct > 0) {
 }
 const discountReason = String(invoice.discount_reason || "").trim();
 const discountRowsHtml = effDiscount > 0.005
-  ? `<div class="amount-row"><span class="label" style="color:#22c55e">Discount${discountReason ? ` (${discountReason})` : ""}</span><span class="value" style="color:#22c55e">&#8722;$${money(effDiscount)}</span></div>`
+  ? `<div class="amount-row"><span class="label" style="color:var(--green)">Discount${discountReason ? ` (${discountReason})` : ""}</span><span class="value" style="color:var(--green)">&#8722;$${money(effDiscount)}</span></div>`
   : "";
 const preDiscountSubtotal = subtotal + effDiscount;
 // Financing: a real charge renders as its own untaxed row; a Multi-Pay plan at
@@ -226,7 +226,7 @@ const preDiscountSubtotal = subtotal + effDiscount;
 const financingRowHtml = financingCharge > 0.005
   ? `<div class="amount-row"><span class="label">Financing Charge (${financingPct}%)</span><span class="value">$${money(financingCharge)}</span></div>`
   : (multiPayMonths > 0
-      ? `<div class="amount-row"><span class="label" style="color:#22c55e;font-weight:700">0% Financing &#10003;</span><span class="value" style="color:#22c55e">$0.00</span></div>`
+      ? `<div class="amount-row"><span class="label" style="color:var(--green);font-weight:700">0% Financing &#10003;</span><span class="value" style="color:var(--green)">$0.00</span></div>`
       : '');
 let summaryRowsHtml = '';
 if (isDepositInvoice) {
@@ -262,7 +262,7 @@ if (isDepositInvoice) {
       <span class="label">Invoice Total</span>
       <span class="value">$${money(fullInvoiceTotal)}</span>
     </div>
-    ${depositAmount > 0 && !showItemizedPayments ? `<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ${depositPaid ? '#22c55e' : '#eab308'}">${depositPaid ? '&#8722;' : ''}$${money(depositAmount)}${depositPaid ? ' &#10003;' : ' (unpaid)'}</span></div>` : ''}
+    ${depositAmount > 0 && !showItemizedPayments ? `<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ${depositPaid ? 'var(--green)' : 'var(--amber)'}">${depositPaid ? '&#8722;' : ''}$${money(depositAmount)}${depositPaid ? ' &#10003;' : ' (unpaid)'}</span></div>` : ''}
     ${paymentsListHtml}
     <div class="amount-row total">
       <span class="label">Amount Due</span>
@@ -284,13 +284,38 @@ const html = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121217">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <title>Shield Low Voltage — Payment</title>
 <style>
+/* ---- Theme tokens — same block as the estimate page (mirrors the app's ShieldTheme).
+   Dark first; light variants under prefers-color-scheme. The page follows the device. */
+:root {
+  color-scheme: dark;
+  --bg: #121217; --card: #1c1c24; --surface-1: rgba(255,255,255,.03); --surface-2: rgba(255,255,255,.05);
+  --input-bg: rgba(255,255,255,.06); --border: rgba(255,255,255,.08); --border-soft: rgba(255,255,255,.05); --border-strong: rgba(255,255,255,.16);
+  --text: #f4f5f7; --text-2: #c7cddb; --text-3: #a6abb3; --text-dim: var(--text-3);
+  --accent: #1a59c4; --on-accent: #ffffff; --link: #6badff; --blue: #6badff; --violet: #b48cf0;
+  --green: #3fd39a; --amber: #f2bf3a; --orange: #f29933; --red: #f07070;
+  --shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #ffffff; --card: #f2f2f7; --surface-1: rgba(0,0,0,.03); --surface-2: rgba(0,0,0,.05);
+    --input-bg: rgba(118,118,128,.12); --border: rgba(0,0,0,.1); --border-soft: rgba(0,0,0,.07); --border-strong: rgba(0,0,0,.18);
+    --text: #1a294d; --text-2: #2f3646; --text-3: #666b73; --text-dim: #8a8f98;
+    --accent: #1a59c4; --on-accent: #ffffff; --link: #2e7af2; --blue: #1a59c4; --violet: #6d3fc7;
+    --green: #1f8f5f; --amber: #b06e00; --orange: #c2600f; --red: #c43c3c;
+    --shadow: 0 12px 40px rgba(26,41,77,.12);
+  }
+}
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
 font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-background: linear-gradient(145deg, #0a0e1a 0%, #0d1117 50%, #0f1520 100%);
-color: #FFFFFF;
+background: var(--bg);
+color: var(--text);
 min-height: 100vh;
 display: flex;
 flex-direction: column;
@@ -300,38 +325,38 @@ padding: 20px;
 .header { text-align: center; margin: 40px 0 32px; }
 .company-logo { width: 110px; height: 110px; object-fit: contain; margin: 0 auto 12px; display: block; filter: drop-shadow(0 8px 24px rgba(59,130,246,0.35)); }
 .logo-fallback { width: 56px; height: 56px; background: linear-gradient(135deg, #1a5fc7, #3b82f6); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 8px 32px rgba(59,130,246,0.3); }
-.logo-fallback svg { width: 28px; height: 28px; fill: white; }
+.logo-fallback svg { width: 28px; height: 28px; fill: var(--text); }
 .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.3px; }
-.header p { font-size: 14px; color: #6b7280; margin-top: 4px; }
-.container { background: rgba(22, 27, 34, 0.95); border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); padding: 0; max-width: 460px; width: 100%; overflow: visible; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-.invoice-section { padding: 24px 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.header p { font-size: 14px; color: var(--text-3); margin-top: 4px; }
+.container { background: var(--card); border-radius: 20px; border: 1px solid var(--border); padding: 0; max-width: 460px; width: 100%; overflow: visible; box-shadow: var(--shadow); }
+.invoice-section { padding: 24px 24px 20px; border-bottom: 1px solid var(--border); }
 .invoice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.invoice-number { font-size: 13px; color: #6b7280; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+.invoice-number { font-size: 13px; color: var(--text-3); font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
 .invoice-status { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
-.status-pending { background: rgba(234,179,8,0.15); color: #eab308; }
-.status-partial { background: rgba(59,130,246,0.15); color: #3b82f6; }
-.status-deposit { background: rgba(249,115,22,0.15); color: #fb923c; }
+.status-pending { background: rgba(234,179,8,0.15); color: var(--amber); }
+.status-partial { background: rgba(59,130,246,0.15); color: var(--blue); }
+.status-deposit { background: rgba(249,115,22,0.15); color: var(--orange); }
 .customer-name { font-size: 18px; font-weight: 600; margin-bottom: 16px; letter-spacing: -0.2px; }
 
-.line-items-section { margin-bottom: 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; }
-.line-items-title { padding: 12px 14px 6px; font-size: 13px; font-weight: 600; color: #e5e7eb; }
-.line-items-header { display: flex; justify-content: space-between; padding: 8px 14px; background: rgba(255,255,255,0.03); font-size: 11px; font-weight: 600; color: #6b7280; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.04); border-top: 1px solid rgba(255,255,255,0.04); }
-.line-item-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 14px; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.line-items-section { margin-bottom: 16px; background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; }
+.line-items-title { padding: 12px 14px 6px; font-size: 13px; font-weight: 600; color: var(--text); }
+.line-items-header { display: flex; justify-content: space-between; padding: 8px 14px; background: var(--surface-1); font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 1px solid var(--border-soft); border-top: 1px solid var(--border-soft); }
+.line-item-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 14px; gap: 12px; border-bottom: 1px solid var(--border-soft); }
 .line-item-row:last-child { border-bottom: none; }
 .line-item-desc { flex: 1; min-width: 0; }
-.line-item-name { font-size: 14px; color: #e5e7eb; line-height: 1.3; }
-.line-item-qty { font-size: 12px; color: #6b7280; margin-top: 2px; }
-.line-item-amount { font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; }
+.line-item-name { font-size: 14px; color: var(--text); line-height: 1.3; }
+.line-item-qty { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.line-item-amount { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; }
 
 .amount-grid { display: grid; gap: 10px; }
-.amount-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 10px; }
-.amount-row .label { font-size: 14px; color: #9ca3af; }
+.amount-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--surface-1); border-radius: 10px; }
+.amount-row .label { font-size: 14px; color: var(--text-3); }
 .amount-row .value { font-size: 14px; font-weight: 600; }
 .amount-row.total { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.06)); border: 1px solid rgba(59,130,246,0.2); }
-.amount-row.total .value { color: #60a5fa; font-size: 22px; font-weight: 700; }
+.amount-row.total .value { color: var(--blue); font-size: 22px; font-weight: 700; }
 .amount-row.deposit-note { background: linear-gradient(135deg, rgba(249,115,22,0.1), rgba(249,115,22,0.04)); border: 1px solid rgba(249,115,22,0.18); }
-.amount-row.deposit-note .label { color: #fb923c; font-weight: 600; }
-.amount-row.deposit-note .value { color: #fb923c; }
+.amount-row.deposit-note .label { color: var(--orange); font-weight: 600; }
+.amount-row.deposit-note .value { color: var(--orange); }
 
 .payment-section { padding: 24px; }
 .wallet-buttons { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
@@ -341,24 +366,24 @@ padding: 20px;
    Stacked layout + centering keeps it tidy; 12px radius matches Apple Pay. */
 #google-pay-container { display: flex; justify-content: center; }
 #google-pay-container button, #google-pay-container .gpay-button { border-radius: 12px !important; transform: scale(1.3); transform-origin: center; font-size: 16px !important; }
-.wallet-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: #6b7280; font-size: 13px; }
-.wallet-divider::before, .wallet-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
-.method-toggle { display: flex; gap: 8px; margin-bottom: 24px; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 4px; }
-.method-btn { flex: 1; padding: 10px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.25s ease; background: transparent; color: #6b7280; display: flex; align-items: center; justify-content: center; gap: 6px; }
-.method-btn.active { background: linear-gradient(135deg, #1a5fc7, #3b82f6); color: white; box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
+.wallet-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--text-3); font-size: 13px; }
+.wallet-divider::before, .wallet-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.method-toggle { display: flex; gap: 8px; margin-bottom: 24px; background: var(--surface-2); border-radius: 12px; padding: 4px; }
+.method-btn { flex: 1; padding: 10px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.25s ease; background: transparent; color: var(--text-3); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.method-btn.active { background: linear-gradient(135deg, #1a5fc7, #3b82f6); color: var(--text); box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
 .method-btn svg { width: 18px; height: 18px; fill: currentColor; }
 .fields-group { display: none; }
 .fields-group.active { display: block; }
-.field-label { font-size: 12px; color: #6b7280; margin-bottom: 6px; display: block; font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; }
-.collect-field { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; min-height: 48px; transition: border-color 0.2s ease; }
+.field-label { font-size: 12px; color: var(--text-3); margin-bottom: 6px; display: block; font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; }
+.collect-field { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; min-height: 48px; transition: border-color 0.2s ease; }
 .collect-field:focus-within { border-color: rgba(59,130,246,0.5); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
 .collect-field iframe { width: 100% !important; min-height: 24px !important; }
 .row-2 { display: flex; gap: 12px; }
 .row-2 > div { flex: 1; }
 .vault-info { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 12px 14px; background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.12); border-radius: 10px; }
-.vault-info svg { width: 16px; height: 16px; fill: #60a5fa; flex-shrink: 0; }
-.vault-info span { font-size: 13px; color: #9ca3af; }
-#pay-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #1a5fc7, #3b82f6); color: #FFFFFF; border: none; border-radius: 14px; font-size: 17px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 8px 24px rgba(59,130,246,0.3); letter-spacing: -0.2px; }
+.vault-info svg { width: 16px; height: 16px; fill: var(--blue); flex-shrink: 0; }
+.vault-info span { font-size: 13px; color: var(--text-3); }
+#pay-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #1a5fc7, #3b82f6); color: var(--text); border: none; border-radius: 14px; font-size: 17px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 8px 24px rgba(59,130,246,0.3); letter-spacing: -0.2px; }
 #pay-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(59,130,246,0.4); }
 #pay-btn:active { transform: translateY(0); }
 #pay-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
@@ -379,14 +404,14 @@ padding: 20px;
   #pay-btn-wrap::before, #pay-btn-wrap::after { animation: none; }
 }
 #status { text-align: center; margin-top: 16px; font-size: 14px; min-height: 20px; }
-.success { color: #22c55e; }
-.error { color: #ef4444; }
-.processing { color: #eab308; }
-.footer { text-align: center; margin-top: 24px; font-size: 12px; color: #4b5563; }
-.footer svg { width: 14px; height: 14px; fill: #4b5563; vertical-align: -2px; margin-right: 4px; }
+.success { color: var(--green); }
+.error { color: var(--red); }
+.processing { color: var(--amber); }
+.footer { text-align: center; margin-top: 24px; font-size: 12px; color: var(--text-dim); }
+.footer svg { width: 14px; height: 14px; fill: var(--text-dim); vertical-align: -2px; margin-right: 4px; }
 .success-container { padding: 48px 24px; text-align: center; }
 .success-icon { width: 64px; height: 64px; background: rgba(34,197,94,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
-.success-icon svg { width: 32px; height: 32px; fill: #22c55e; }
+.success-icon svg { width: 32px; height: 32px; fill: var(--green); }
 </style>
 </head>
 <body>
@@ -456,19 +481,19 @@ ${summaryRowsHtml}
 </div>
 
 <div style="margin-top:16px;">
-<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#e5e7eb;cursor:pointer;">
-<input type="checkbox" id="billing-same" checked onchange="toggleBilling()" style="width:18px;height:18px;accent-color:#2563eb;">
+<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text);cursor:pointer;">
+<input type="checkbox" id="billing-same" checked onchange="toggleBilling()" style="width:18px;height:18px;accent-color:var(--accent);">
 Billing name &amp; address same as service
 </label>
 <div id="billing-fields" style="display:none;margin-top:12px;">
 <label class="field-label">Billing Name (as on card)</label>
-<input type="text" id="billing-name" value="${customerName}" style="width:100%;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;margin-bottom:10px;">
+<input type="text" id="billing-name" value="${customerName}" style="width:100%;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;margin-bottom:10px;">
 <label class="field-label">Billing Address</label>
-<input type="text" id="billing-address" value="${customerAddress}" style="width:100%;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;margin-bottom:10px;">
+<input type="text" id="billing-address" value="${customerAddress}" style="width:100%;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;margin-bottom:10px;">
 <div style="display:flex;gap:8px;">
-<input type="text" id="billing-city" placeholder="City" style="flex:2;min-width:0;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
-<input type="text" id="billing-state" placeholder="State" style="flex:1;min-width:0;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
-<input type="text" id="billing-zip" placeholder="ZIP" style="flex:1;min-width:0;background:#111827;border:1px solid #374151;border-radius:10px;padding:12px;color:#fff;font-size:15px;">
+<input type="text" id="billing-city" placeholder="City" style="flex:2;min-width:0;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;">
+<input type="text" id="billing-state" placeholder="State" style="flex:1;min-width:0;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;">
+<input type="text" id="billing-zip" placeholder="ZIP" style="flex:1;min-width:0;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;">
 </div>
 </div>
 </div>
@@ -496,7 +521,7 @@ Secured by NMI &bull; PCI-DSS Compliant
 data-tokenization-key="${nmiPublicKey}"
 data-field-apple-pay-selector="#apple-pay-container"
 data-field-apple-pay-type="buy"
-data-field-apple-pay-style-button-style="white"
+data-field-apple-pay-style-button-style="white-outline"
 data-field-apple-pay-style-height="40px"
 data-field-apple-pay-style-border-radius="4px"
 data-field-google-pay-selector="#google-pay-container"
@@ -507,6 +532,10 @@ data-field-google-pay-button-color="white"></script>
 var paymentToken = null;
 var currentMethod = 'card';
 var collectReady = false;
+
+var prefersDark = !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+var fieldTextColor = prefersDark ? '#f4f5f7' : '#1a294d';
+var fieldPlaceholderColor = prefersDark ? '#6b7280' : '#8a8f98';
 
 function initCollect() {
 if (typeof CollectJS === 'undefined') return false;
@@ -522,10 +551,12 @@ fields: {
   checkaba: { selector: '#checkaba', title: 'Routing Number', placeholder: '000000000' },
   checkaccount: { selector: '#checkaccount', title: 'Account Number', placeholder: '0000000000' }
 },
-customCss: { 'color': '#FFFFFF', 'font-size': '16px', 'font-family': '-apple-system, BlinkMacSystemFont, sans-serif', 'background-color': 'transparent', 'border': 'none', 'outline': 'none' },
-focusCss: { 'color': '#FFFFFF' },
-placeholderCss: { 'color': '#4b5563' },
-invalidCss: { 'color': '#ef4444' },
+// Hosted fields render inside NMI iframes, out of reach of the page's CSS tokens —
+// resolve the scheme here so card text isn't white-on-white in light mode.
+customCss: { 'color': fieldTextColor, 'font-size': '16px', 'font-family': '-apple-system, BlinkMacSystemFont, sans-serif', 'background-color': 'transparent', 'border': 'none', 'outline': 'none' },
+focusCss: { 'color': fieldTextColor },
+placeholderCss: { 'color': fieldPlaceholderColor },
+invalidCss: { 'color': 'var(--red)' },
 price: '${balanceDueRaw}',
 currency: 'USD',
 country: 'US',
@@ -641,8 +672,8 @@ document.querySelector('.payment-section').innerHTML =
       '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
     '</div>' +
     '<h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Payment Successful</h2>' +
-    '<p style="color: #9ca3af; font-size: 15px;">Thank you for your payment of <strong style="color: #fff;">$${balanceDue}</strong></p>' +
-    '<p style="color: #6b7280; font-size: 13px; margin-top: 12px;">A confirmation will be sent to your email.</p>' +
+    '<p style="color: var(--text-3); font-size: 15px;">Thank you for your payment of <strong style="color: var(--text);">$${balanceDue}</strong></p>' +
+    '<p style="color: var(--text-3); font-size: 13px; margin-top: 12px;">A confirmation will be sent to your email.</p>' +
   '</div>';
 } else {
 status.className = 'error';
@@ -674,14 +705,16 @@ return String(str)
 
 function notFoundHtml() {
 return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="dark light">
 <title>Not Found</title>
 <style>
-body { font-family: -apple-system, sans-serif; background: #0a0e1a; color: #fff;
+:root { color-scheme: dark; --bg: #121217; --text: #f4f5f7; --text-3: #a6abb3; --green: #3fd39a; --red: #f07070; }
+@media (prefers-color-scheme: light) { :root { color-scheme: light; --bg: #ffffff; --text: #1a294d; --text-3: #666b73; --green: #1f8f5f; --red: #c43c3c; } }
+body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text);
 display: flex; justify-content: center; align-items: center; min-height: 100vh; }
 .container { text-align: center; padding: 32px; }
-h2 { color: #ef4444; margin-bottom: 8px; }
-p { color: #6b7280; }
+h2 { color: var(--red); margin-bottom: 8px; }
+p { color: var(--text-3); }
 </style></head><body><div class="container">
 <h2>Invoice Not Found</h2>
 <p>This invoice could not be located. Please check the link and try again.</p>
@@ -690,19 +723,21 @@ p { color: #6b7280; }
 
 function paidHtml(invoice, logoUrl) {
 return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="dark light">
 <title>Payment Complete — Shield Low Voltage</title>
 <style>
-body { font-family: -apple-system, sans-serif; background: linear-gradient(145deg, #0a0e1a, #0d1117);
-color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+:root { color-scheme: dark; --bg: #121217; --text: #f4f5f7; --text-3: #a6abb3; --green: #3fd39a; --red: #f07070; }
+@media (prefers-color-scheme: light) { :root { color-scheme: light; --bg: #ffffff; --text: #1a294d; --text-3: #666b73; --green: #1f8f5f; --red: #c43c3c; } }
+body { font-family: -apple-system, sans-serif; background: var(--bg);
+color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; }
 .container { text-align: center; padding: 48px 32px; max-width: 400px; }
 .logo { width: 64px; height: 64px; border-radius: 14px; object-fit: contain; margin: 0 auto 24px; display: block; }
 .icon { width: 72px; height: 72px; background: rgba(34,197,94,0.12); border-radius: 50%;
 display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
-.icon svg { width: 36px; height: 36px; fill: #22c55e; }
+.icon svg { width: 36px; height: 36px; fill: var(--green); }
 h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-p { color: #6b7280; font-size: 15px; line-height: 1.5; }
-.invoice { color: #9ca3af; font-size: 13px; margin-top: 16px; }
+p { color: var(--text-3); font-size: 15px; line-height: 1.5; }
+.invoice { color: var(--text-3); font-size: 13px; margin-top: 16px; }
 </style></head><body><div class="container">
 ${logoUrl ? '<img src="' + logoUrl + '" alt="Shield Low Voltage" class="logo" />' : ''}
 <div class="icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
