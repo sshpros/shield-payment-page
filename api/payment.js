@@ -31,6 +31,17 @@ if (error || !invoice) {
   return res.status(404).send(notFoundHtml());
 }
 
+// --- Company brand (per-invoice) ---
+// Blank = default (Shield); "Security & Smarthome Pros" = the legacy LLC name,
+// shown until the LLC officially transfers to the Shield name.
+const brandName = (invoice.company_brand && String(invoice.company_brand).trim()) || "Shield Low Voltage";
+const isLegacyBrand = brandName === "Security & Smarthome Pros";
+// The 3D logo carries the SHIELD wordmark, so the legacy brand uses the
+// wordmark-less shield mark instead.
+const brandLogoUrl = isLegacyBrand
+  ? "https://fzzpdojbuwgmylmadupm.supabase.co/storage/v1/object/public/public-assets/logo-shield.png?v=3"
+  : companyLogoUrl;
+
 // --- Amount calculations ---
 const isDepositInvoice = invoice.is_deposit_invoice || false;
 const depositRequired = Number(invoice.deposit_required_amount || 0);
@@ -67,7 +78,7 @@ const balanceDueRaw = amountDue.toFixed(2);
 
 if (amountDue <= 0) {
   res.setHeader("Content-Type", "text/html");
-  return res.status(200).send(paidHtml(invoice, companyLogoUrl));
+  return res.status(200).send(paidHtml(invoice, brandLogoUrl));
 }
 
 const processUrl = `${supabaseUrl}/functions/v1/process-payment`;
@@ -287,7 +298,7 @@ const html = `<!DOCTYPE html>
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121217">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
-<title>Shield Low Voltage — Payment</title>
+<title>${brandName} — Payment</title>
 <style>
 /* ---- Theme tokens — same block as the estimate page (mirrors the app's ShieldTheme).
    Dark first; light variants under prefers-color-scheme. The page follows the device. */
@@ -417,11 +428,11 @@ padding: 20px;
 <body>
 
 <div class="header">
-${companyLogoUrl
-? '<img src="' + companyLogoUrl + '" alt="Shield Low Voltage" class="company-logo" />'
+${brandLogoUrl
+? '<img src="' + brandLogoUrl + '" alt="' + brandName + '" class="company-logo" />'
 : '<div class="logo-fallback"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 6h2v2h-2V7zm0 4h2v6h-2v-6z"/></svg></div>'
 }
-<h1>Shield Low Voltage</h1>
+<h1>${brandName}</h1>
 <p>Secure Payment Portal</p>
 </div>
 
@@ -722,9 +733,10 @@ p { color: var(--text-3); }
 }
 
 function paidHtml(invoice, logoUrl) {
+const brandName = (invoice.company_brand && String(invoice.company_brand).trim()) || "Shield Low Voltage";
 return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="dark light">
-<title>Payment Complete — Shield Low Voltage</title>
+<title>Payment Complete — ${brandName}</title>
 <style>
 :root { color-scheme: dark; --bg: #121217; --text: #f4f5f7; --text-3: #a6abb3; --green: #3fd39a; --red: #f07070; }
 @media (prefers-color-scheme: light) { :root { color-scheme: light; --bg: #ffffff; --text: #1a294d; --text-3: #666b73; --green: #1f8f5f; --red: #c43c3c; } }
@@ -739,7 +751,7 @@ h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
 p { color: var(--text-3); font-size: 15px; line-height: 1.5; }
 .invoice { color: var(--text-3); font-size: 13px; margin-top: 16px; }
 </style></head><body><div class="container">
-${logoUrl ? '<img src="' + logoUrl + '" alt="Shield Low Voltage" class="logo" />' : ''}
+${logoUrl ? '<img src="' + logoUrl + '" alt="' + brandName + '" class="logo" />' : ''}
 <div class="icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
 <h2>Invoice Paid in Full</h2>
 <p>Thank you for your payment!</p>
