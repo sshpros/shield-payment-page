@@ -65,10 +65,11 @@ const balanceDue = money(amountDue);
 // comma-formatted prices ("1,609.60"); display strings must never reach it.
 const balanceDueRaw = amountDue.toFixed(2);
 
-if (amountDue <= 0) {
-  res.setHeader("Content-Type", "text/html");
-  return res.status(200).send(paidHtml(invoice, companyLogoUrl));
-}
+// Paid invoices render the full invoice (items, totals, payments) with a Paid
+// badge and a save-as-PDF button in place of the pay form. They used to show
+// only "Paid in Full", so customers opening past invoices from their account
+// page saw no detail at all (Kyle, 2026-10-02).
+const isPaidInFull = amountDue <= 0.005;
 
 const processUrl = `${supabaseUrl}/functions/v1/process-payment`;
 const customerName = (invoice.customer_name || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
@@ -120,7 +121,7 @@ if (dispatchFee > 0) {
 
 const lineItemsHtml = displayItems.length > 0
   ? `<div class="line-items-section">
-       <div class="line-items-title">What you're paying for</div>
+       <div class="line-items-title">${isPaidInFull ? "Invoice items" : "What you're paying for"}</div>
        <div class="line-items-header">
          <span>Description</span>
          <span>Amount</span>
@@ -248,8 +249,8 @@ if (isDepositInvoice) {
     ${multiPayMonths > 0 ? `<div class="amount-row" style="font-size:12px;opacity:0.75"><span class="label">Multi-Pay plan</span><span class="value">${multiPayMonths} monthly payments &#8212; remaining installments auto-charge to your card</span></div>` : ''}
     ${paymentsListHtml}
     <div class="amount-row total">
-      <span class="label">Balance Due Now</span>
-      <span class="value">$${balanceDue}</span>
+      <span class="label">${isPaidInFull ? 'Balance' : 'Balance Due Now'}</span>
+      <span class="value">${isPaidInFull ? 'Paid in Full &#10003;' : '$' + balanceDue}</span>
     </div>
   `;
 } else {
@@ -265,19 +266,19 @@ if (isDepositInvoice) {
     ${depositAmount > 0 && !showItemizedPayments ? `<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ${depositPaid ? 'var(--green)' : 'var(--amber)'}">${depositPaid ? '&#8722;' : ''}$${money(depositAmount)}${depositPaid ? ' &#10003;' : ' (unpaid)'}</span></div>` : ''}
     ${paymentsListHtml}
     <div class="amount-row total">
-      <span class="label">Amount Due</span>
-      <span class="value">$${balanceDue}</span>
+      <span class="label">${isPaidInFull ? 'Balance' : 'Amount Due'}</span>
+      <span class="value">${isPaidInFull ? 'Paid in Full &#10003;' : '$' + balanceDue}</span>
     </div>
   `;
 }
 
 const depositSatisfied = isDepositInvoice && depositStillOwed <= 0.01;
-const statusLabel = isDepositInvoice
+const statusLabel = isPaidInFull ? 'Paid' : isDepositInvoice
   ? (multiPayMonths > 0
       ? (depositSatisfied ? 'Multi-Pay Active' : 'First Installment Due')
       : (depositSatisfied ? 'Balance Due' : 'Deposit Due'))
   : (depositPaid ? 'Deposit Paid' : 'Payment Due');
-const statusClass = isDepositInvoice ? (depositSatisfied ? 'status-partial' : 'status-deposit') : (depositPaid ? 'status-partial' : 'status-pending');
+const statusClass = isPaidInFull ? 'status-paid' : isDepositInvoice ? (depositSatisfied ? 'status-partial' : 'status-deposit') : (depositPaid ? 'status-partial' : 'status-pending');
 
 const html = `<!DOCTYPE html>
 <html lang="en">
@@ -359,6 +360,14 @@ padding: 20px;
 .amount-row.deposit-note .value { color: var(--orange); }
 
 .payment-section { padding: 24px; }
+.status-paid { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+.paid-note { text-align: center; color: var(--green); font-weight: 600; font-size: 15px; margin-bottom: 14px; }
+.print-btn { width: 100%; padding: 14px; background: transparent; color: var(--link); border: 1.5px solid var(--link); border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; }
+@media print {
+  :root { color-scheme: light; --bg: #fff; --card: #fff; --text: #111; --text-2: #333; --text-3: #555; --surface-1: #fff; --border: #ddd; --border-soft: #e5e5e5; --blue: #1a59c4; --green: #1f8f5f; }
+  .payment-section, .footer { display: none !important; }
+  body { background: #fff !important; }
+}
 .wallet-buttons { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 .apple-pay-button { width: 100%; min-height: 40px; }
 /* Google locks the Google Pay button's width/height (only border-radius is
@@ -438,6 +447,7 @@ ${summaryRowsHtml}
 </div>
 </div>
 
+<!--PAY-START-->
 <div class="payment-section">
 <div class="wallet-buttons">
 <div id="apple-pay-container" class="apple-pay-button"></div>
@@ -510,6 +520,7 @@ Pay $${balanceDue}
 </div>
 <div id="status"></div>
 </div>
+<!--PAY-END-->
 </div>
 
 <div class="footer">
@@ -517,6 +528,7 @@ Pay $${balanceDue}
 Secured by NMI &bull; PCI-DSS Compliant
 </div>
 
+<!--SCRIPT-START-->
 <script src="https://secure.nmi.com/token/Collect.js"
 data-tokenization-key="${nmiPublicKey}"
 data-field-apple-pay-selector="#apple-pay-container"
@@ -687,11 +699,27 @@ btn.disabled = false;
 }
 }
 </script>
+<!--SCRIPT-END-->
 </body>
 </html>`;
 
+// Paid: swap the pay form + payment scripts for a thank-you note and a
+// print/save-as-PDF button (the browser's print dialog saves a PDF).
+let page = html;
+if (isPaidInFull) {
+  const cut = (str, a, b, repl) => {
+    const i = str.indexOf(a), j = str.indexOf(b);
+    return i >= 0 && j > i ? str.slice(0, i) + repl + str.slice(j + b.length) : str;
+  };
+  page = cut(page, "<!--PAY-START-->", "<!--PAY-END-->", `<div class="payment-section paid-section">
+<p class="paid-note">Paid in full &mdash; thank you!</p>
+<button class="print-btn" onclick="window.print()">Save as PDF / Print</button>
+</div>`);
+  page = cut(page, "<!--SCRIPT-START-->", "<!--SCRIPT-END-->", "");
+}
+
 res.setHeader("Content-Type", "text/html");
-return res.status(200).send(html);
+return res.status(200).send(page);
 }
 
 function escapeHtml(str) {
@@ -718,31 +746,5 @@ p { color: var(--text-3); }
 </style></head><body><div class="container">
 <h2>Invoice Not Found</h2>
 <p>This invoice could not be located. Please check the link and try again.</p>
-</div></body></html>`;
-}
-
-function paidHtml(invoice, logoUrl) {
-return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="dark light">
-<title>Payment Complete — Shield Low Voltage</title>
-<style>
-:root { color-scheme: dark; --bg: #121217; --text: #f4f5f7; --text-3: #a6abb3; --green: #3fd39a; --red: #f07070; }
-@media (prefers-color-scheme: light) { :root { color-scheme: light; --bg: #ffffff; --text: #1a294d; --text-3: #666b73; --green: #1f8f5f; --red: #c43c3c; } }
-body { font-family: -apple-system, sans-serif; background: var(--bg);
-color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-.container { text-align: center; padding: 48px 32px; max-width: 400px; }
-.logo { width: 64px; height: 64px; border-radius: 14px; object-fit: contain; margin: 0 auto 24px; display: block; }
-.icon { width: 72px; height: 72px; background: rgba(34,197,94,0.12); border-radius: 50%;
-display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
-.icon svg { width: 36px; height: 36px; fill: var(--green); }
-h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-p { color: var(--text-3); font-size: 15px; line-height: 1.5; }
-.invoice { color: var(--text-3); font-size: 13px; margin-top: 16px; }
-</style></head><body><div class="container">
-${logoUrl ? '<img src="' + logoUrl + '" alt="Shield Low Voltage" class="logo" />' : ''}
-<div class="icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-<h2>Invoice Paid in Full</h2>
-<p>Thank you for your payment!</p>
-<p class="invoice">Invoice ${invoice.invoice_number || ''} &bull; ${invoice.customer_name || ''}</p>
 </div></body></html>`;
 }
