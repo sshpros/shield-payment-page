@@ -119,6 +119,14 @@ if (dispatchFee > 0) {
   }
 }
 
+// Invoice notes (e.g. "Covers September and October 2026"): the office writes
+// them for the customer, so they belong on the page, not just the PDF
+// (Kyle, 2026-10-07: Destination Homes' two-month note was nowhere to be seen).
+const invoiceNotes = String(invoice.notes || "").trim();
+const notesHtml = invoiceNotes
+  ? `<div class="invoice-notes"><div class="invoice-notes-title">Notes</div><div class="invoice-notes-body">${escapeHtml(invoiceNotes).replace(/\n/g, "<br>")}</div></div>`
+  : "";
+
 const lineItemsHtml = displayItems.length > 0
   ? `<div class="line-items-section">
        <div class="line-items-title">${isPaidInFull ? "Invoice items" : "What you're paying for"}</div>
@@ -339,6 +347,9 @@ padding: 20px;
 .status-deposit { background: rgba(249,115,22,0.15); color: var(--orange); }
 .customer-name { font-size: 18px; font-weight: 600; margin-bottom: 16px; letter-spacing: -0.2px; }
 
+.invoice-notes { margin-bottom: 16px; padding: 12px 14px; background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 12px; }
+.invoice-notes-title { font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
+.invoice-notes-body { font-size: 14px; line-height: 1.5; color: var(--text); }
 .line-items-section { margin-bottom: 16px; background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; }
 .line-items-title { padding: 12px 14px 6px; font-size: 13px; font-weight: 600; color: var(--text); }
 .line-items-header { display: flex; justify-content: space-between; padding: 8px 14px; background: var(--surface-1); font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 1px solid var(--border-soft); border-top: 1px solid var(--border-soft); }
@@ -442,6 +453,7 @@ ${companyLogoUrl
 </div>
 <div class="customer-name">${invoice.customer_name || 'Customer'}</div>
 ${lineItemsHtml}
+${notesHtml}
 <div class="amount-grid">
 ${summaryRowsHtml}
 </div>
