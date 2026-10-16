@@ -556,6 +556,20 @@ data-field-google-pay-button-color="white"></script>
 var paymentToken = null;
 var currentMethod = 'card';
 var collectReady = false;
+var fieldErrors = {};
+var fieldLabels = { ccnumber: 'card number', ccexp: 'expiration date', cvv: 'CVV', checkname: 'account holder name', checkaba: 'routing number', checkaccount: 'account number' };
+
+function showFieldErrors() {
+var prefix = currentMethod === 'ach' ? 'check' : 'c';
+var bad = Object.keys(fieldErrors).filter(function(f) { return f.indexOf(prefix) === 0; })
+  .map(function(f) { return fieldLabels[f] || f; });
+var status = document.getElementById('status');
+status.className = 'error';
+status.textContent = bad.length
+  ? 'Please check the ' + bad.join(', ') + ' and try again.'
+  : 'We couldn\\'t verify those details. Please check them and try again.';
+document.getElementById('pay-btn').disabled = false;
+}
 
 var prefersDark = !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
 var fieldTextColor = prefersDark ? '#f4f5f7' : '#1a294d';
@@ -594,6 +608,13 @@ callback: function(response) {
 },
 validationCallback: function(field, status, message) {
   console.log('Validation:', field, status, message);
+  if (status) { delete fieldErrors[field]; } else { fieldErrors[field] = message; }
+},
+// Collect.js never calls back when a field is incomplete or invalid — without
+// this the page sat on "Processing..." forever and the customer gave up.
+timeoutDuration: 10000,
+timeoutCallback: function() {
+  showFieldErrors();
 }
 });
 } catch (e) {
