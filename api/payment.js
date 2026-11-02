@@ -297,6 +297,7 @@ const html = `<!DOCTYPE html>
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121217">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <title>Shield Low Voltage — Payment</title>
+<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
 /* ---- Theme tokens — same block as the estimate page (mirrors the app's ShieldTheme).
    Dark first; light variants under prefers-color-scheme. The page follows the device. */
@@ -767,7 +768,7 @@ return String(str)
 function notFoundHtml() {
 return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="dark light">
-<title>Not Found</title>
+<title>Not Found</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
 :root { color-scheme: dark; --bg: #121217; --text: #f4f5f7; --text-3: #a6abb3; --green: #3fd39a; --red: #f07070; }
 @media (prefers-color-scheme: light) { :root { color-scheme: light; --bg: #ffffff; --text: #1a294d; --text-3: #666b73; --green: #1f8f5f; --red: #c43c3c; } }
