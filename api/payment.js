@@ -12,7 +12,7 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const nmiPublicKey = process.env.NMI_PUBLIC_KEY || "checkout_public_Ahqyu2pp5FfRv892dFjB7Yy6JS53CD4A";
 // Canonical brand mark = the 3D shield WITH the SHIELD wordmark.
-const companyLogoUrl = process.env.COMPANY_LOGO_URL || "https://fzzpdojbuwgmylmadupm.supabase.co/storage/v1/object/public/public-assets/brand/shield-lockup-v2.png";
+const companyLogoUrl = process.env.COMPANY_LOGO_URL || "https://fzzpdojbuwgmylmadupm.supabase.co/storage/v1/object/public/public-assets/brand/shield-mark-v2.png"; // shield only — the page prints "Shield Low Voltage" right under it
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 if (!nmiPublicKey) {
@@ -332,7 +332,7 @@ align-items: center;
 padding: 20px;
 }
 .header { text-align: center; margin: 40px 0 32px; }
-.company-logo { width: 110px; height: 110px; object-fit: contain; margin: 0 auto 12px; display: block; filter: drop-shadow(0 8px 24px rgba(59,130,246,0.35)); }
+.company-logo { width: 80px; height: 80px; object-fit: contain; margin: 0 auto 12px; display: block; filter: drop-shadow(0 8px 24px rgba(59,130,246,0.35)); }
 .logo-fallback { width: 56px; height: 56px; background: linear-gradient(135deg, #1a5fc7, #3b82f6); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 8px 32px rgba(59,130,246,0.3); }
 .logo-fallback svg { width: 28px; height: 28px; fill: var(--text); }
 .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.3px; }
