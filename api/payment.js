@@ -54,11 +54,20 @@ const multiPayMonths = Number(invoice.multi_pay_months || 0);
 const financingCharge = Number(invoice.financing_charge_amount || 0);
 const financingPct = Number(invoice.financing_charge_percent || 0);
 const depositStillOwed = Math.max(0, depositRequired - paymentsMade);
-const amountDue = isDepositInvoice && depositRequired > 0
+const fullAmountDue = isDepositInvoice && depositRequired > 0
   ? (isLegacyDepositOnly || depositStillOwed > 0.01
       ? depositStillOwed
       : Math.max(0, fullInvoiceTotal - paymentsMade))
   : Number(invoice.balance_due || 0);
+// Partial request (2026-11-07): the office can ask for part of the balance
+// now (e.g. half in November, half in December) on the same invoice. Only
+// once any deposit is in; process-payment clears it after a charge.
+const requestedNow = Number(invoice.requested_payment_amount || 0);
+const isPartialRequest = requestedNow > 0.005
+  && requestedNow < fullAmountDue - 0.005
+  && !(isDepositInvoice && depositStillOwed > 0.01);
+const amountDue = isPartialRequest ? Math.round(requestedNow * 100) / 100 : fullAmountDue;
+const remainingAfter = Math.max(0, fullAmountDue - amountDue);
 const money = (n) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const balanceDue = money(amountDue);
 // Machine-facing amount for CollectJS wallet config — Apple/Google Pay reject
@@ -237,6 +246,16 @@ const financingRowHtml = financingCharge > 0.005
   : (multiPayMonths > 0
       ? `<div class="amount-row"><span class="label" style="color:var(--green);font-weight:700">0% Financing &#10003;</span><span class="value" style="color:var(--green)">$0.00</span></div>`
       : '');
+const partialBeforeHtml = isPartialRequest ? `
+    <div class="amount-row">
+      <span class="label">Total Balance</span>
+      <span class="value">$${money(fullAmountDue)}</span>
+    </div>` : '';
+const partialAfterHtml = isPartialRequest ? `
+    <div class="amount-row" style="font-size:13px;opacity:0.8">
+      <span class="label">Remaining after this payment</span>
+      <span class="value">$${money(remainingAfter)}</span>
+    </div>` : '';
 let summaryRowsHtml = '';
 if (isDepositInvoice) {
   summaryRowsHtml = `
@@ -256,10 +275,12 @@ if (isDepositInvoice) {
     </div>
     ${multiPayMonths > 0 ? `<div class="amount-row" style="font-size:12px;opacity:0.75"><span class="label">Multi-Pay plan</span><span class="value">${multiPayMonths} monthly payments &#8212; remaining installments auto-charge to your card</span></div>` : ''}
     ${paymentsListHtml}
+    ${partialBeforeHtml}
     <div class="amount-row total">
-      <span class="label">${isPaidInFull ? 'Balance' : 'Balance Due Now'}</span>
+      <span class="label">${isPaidInFull ? 'Balance' : isPartialRequest ? 'Payment Requested Now' : 'Balance Due Now'}</span>
       <span class="value">${isPaidInFull ? 'Paid in Full &#10003;' : '$' + balanceDue}</span>
     </div>
+    ${partialAfterHtml}
   `;
 } else {
   summaryRowsHtml = `
@@ -273,10 +294,12 @@ if (isDepositInvoice) {
     </div>
     ${depositAmount > 0 && !showItemizedPayments ? `<div class="amount-row"><span class="label">Deposit</span><span class="value" style="color: ${depositPaid ? 'var(--green)' : 'var(--amber)'}">${depositPaid ? '&#8722;' : ''}$${money(depositAmount)}${depositPaid ? ' &#10003;' : ' (unpaid)'}</span></div>` : ''}
     ${paymentsListHtml}
+    ${partialBeforeHtml}
     <div class="amount-row total">
-      <span class="label">${isPaidInFull ? 'Balance' : 'Amount Due'}</span>
+      <span class="label">${isPaidInFull ? 'Balance' : isPartialRequest ? 'Payment Requested Now' : 'Amount Due'}</span>
       <span class="value">${isPaidInFull ? 'Paid in Full &#10003;' : '$' + balanceDue}</span>
     </div>
+    ${partialAfterHtml}
   `;
 }
 
