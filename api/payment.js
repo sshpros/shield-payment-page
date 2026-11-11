@@ -7,6 +7,12 @@ const invoiceId = url.searchParams.get("invoice_id");
 if (!invoiceId) {
   return res.status(400).send("Missing invoice_id");
 }
+// Invoice ids are UUIDs. Anything else never reaches the lookup, where "%"
+// or "_" would make the case-insensitive match a pattern match.
+if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId)) {
+  res.setHeader("Content-Type", "text/html");
+  return res.status(404).send(notFoundHtml());
+}
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -81,9 +87,12 @@ const balanceDueRaw = amountDue.toFixed(2);
 const isPaidInFull = amountDue <= 0.005;
 
 const processUrl = `${supabaseUrl}/functions/v1/process-payment`;
-const customerName = (invoice.customer_name || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
-const customerEmail = (invoice.customer_email || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
-const customerAddress = (invoice.customer_address || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
+// HTML-attribute and script-literal forms of the customer fields. Names and
+// addresses are typed by staff and customers, so they're escaped for the
+// context they land in, never pasted raw.
+const customerNameAttr = escapeHtml(invoice.customer_name || "");
+const customerAddressAttr = escapeHtml(invoice.customer_address || "");
+const jsStr = (s) => JSON.stringify(String(s || "")).replace(/</g, "\\u003c");
 
 // --- Line items ---
 let lineItems = [];
@@ -236,7 +245,7 @@ if (effDiscount <= 0.005 && discountPct > 0) {
 }
 const discountReason = String(invoice.discount_reason || "").trim();
 const discountRowsHtml = effDiscount > 0.005
-  ? `<div class="amount-row"><span class="label" style="color:var(--green)">Discount${discountReason ? ` (${discountReason})` : ""}</span><span class="value" style="color:var(--green)">&#8722;$${money(effDiscount)}</span></div>`
+  ? `<div class="amount-row"><span class="label" style="color:var(--green)">Discount${discountReason ? ` (${escapeHtml(discountReason)})` : ""}</span><span class="value" style="color:var(--green)">&#8722;$${money(effDiscount)}</span></div>`
   : "";
 const preDiscountSubtotal = subtotal + effDiscount;
 // Financing: a real charge renders as its own untaxed row; a Multi-Pay plan at
@@ -475,7 +484,7 @@ ${companyLogoUrl
 <span class="invoice-number">Invoice ${invoice.invoice_number || invoiceId.slice(0, 8).toUpperCase()}</span>
 <span class="invoice-status ${statusClass}">${statusLabel}</span>
 </div>
-<div class="customer-name">${invoice.customer_name || 'Customer'}</div>
+<div class="customer-name">${escapeHtml(invoice.customer_name || 'Customer')}</div>
 ${lineItemsHtml}
 ${notesHtml}
 <div class="amount-grid">
@@ -533,9 +542,9 @@ Billing name &amp; address same as service
 </label>
 <div id="billing-fields" style="display:none;margin-top:12px;">
 <label class="field-label">Billing Name (as on card)</label>
-<input type="text" id="billing-name" value="${customerName}" style="width:100%;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;margin-bottom:10px;">
+<input type="text" id="billing-name" value="${customerNameAttr}" style="width:100%;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;margin-bottom:10px;">
 <label class="field-label">Billing Address</label>
-<input type="text" id="billing-address" value="${customerAddress}" style="width:100%;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;margin-bottom:10px;">
+<input type="text" id="billing-address" value="${customerAddressAttr}" style="width:100%;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;margin-bottom:10px;">
 <div style="display:flex;gap:8px;">
 <input type="text" id="billing-city" placeholder="City" style="flex:2;min-width:0;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;">
 <input type="text" id="billing-state" placeholder="State" style="flex:1;min-width:0;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:10px;padding:12px;color:var(--text);font-size:15px;">
@@ -724,10 +733,10 @@ body: JSON.stringify({
   amount: ${amountDue},
   payment_method: currentMethod,
   save_to_vault: true,
-  customer_name: '${customerName}',
-  customer_email: '${customerEmail}',
-  billing_name: billingValue('billing-name', '${customerName}'),
-  billing_address1: billingValue('billing-address', '${customerAddress}'),
+  customer_name: ${jsStr(invoice.customer_name)},
+  customer_email: ${jsStr(invoice.customer_email)},
+  billing_name: billingValue('billing-name', ${jsStr(invoice.customer_name)}),
+  billing_address1: billingValue('billing-address', ${jsStr(invoice.customer_address)}),
   billing_city: billingValue('billing-city', ''),
   billing_state: billingValue('billing-state', ''),
   billing_zip: billingValue('billing-zip', '')
